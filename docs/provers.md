@@ -35,16 +35,18 @@ cannot build the workspace anymore.
 
 Distilled from the Creusot lane; this is the template a new prover copies.
 
-- The cores stay fixed: `crates/ticketing/program/src/flows/` and
-  `crates/ticketing/program/src/domain/` bodies remain byte-identical across
-  all builds. A prover adds cfg-gated spec layers only
-  (`#[cfg_attr(<prover>, ...)]` attributes and `#[cfg(<prover>)]` items,
-  mirroring `cfg(creusot)`).
+- Each prover gets its own program crate `crates/ticketing/<prover>` over the
+  shared `ticketing-interface`. Its `src/flows/` and `src/domain/` core bodies
+  stay identical to the other prover crates' - only the spec annotations
+  differ. Those spec attributes stay cfg-gated (`#[cfg_attr(<prover>, ...)]`
+  attributes and `#[cfg(<prover>)]` items, mirroring `cfg(creusot)`) so the
+  crate's normal and SBF builds compile the same code with zero verification
+  overhead.
 - The new cfg is registered in the root `Cargo.toml` `unexpected_cfgs`
   check-cfg list, next to `cfg(creusot)`.
 - Prover-only dependencies go under `[target.'cfg(<prover>)'.dependencies]` in
-  the program crate, the way `creusot-std` is wired today. The interface crate
-  stays verifier-free.
+  that prover's crate, the way `creusot-std` is wired in `ticketing-creusot`
+  today. The interface crate stays verifier-free.
 - A lane of its own: `mise.<prover>.toml` selected by `MISE_ENV=<prover>`, a
   `<prover>-tooling` Dockerfile stage, an image variable in `just/common.just`,
   a `build-<prover>` recipe in `just/tooling.just`, and a `just/<prover>.just`
@@ -54,8 +56,9 @@ Distilled from the Creusot lane; this is the template a new prover copies.
   `verif/`, with a deterministic `replay`-style recipe to re-check them.
 - A `<prover>_changed` glob in `scripts/hooks/pre-push` scopes the hook.
 - `scripts/check-ticketing-transitions.sh` (every `&mut` core argument must
-  carry an `is_legal_transition_from` ensures clause) keeps guarding for free
-  as long as the prover keeps that predicate name.
+  carry an `is_legal_transition_from` ensures clause) scans the prover crate's
+  `src/flows/` and keeps guarding for free as long as the prover keeps that
+  predicate name.
 
 ## What we compare
 
@@ -128,7 +131,8 @@ caveat evaporates - no unwinding bounds, every path explored bit-precisely.
 
 Integration sketch:
 
-- A `cfg(kani)` spec layer beside the creusot one; register the cfg in
+- Its own `ticketing-kani` crate (`crates/ticketing/kani`) beside
+  `ticketing-creusot`, with a `cfg(kani)` spec layer; register the cfg in
   check-cfg.
 - `kani::Arbitrary` for `Event`/`Ticket` (plain `#[repr(C)]` PODs, derivable
   or hand-written) plus `kani::assume(event.invariant())` on entry, with the
@@ -268,6 +272,10 @@ annotation-based.
 
 ## Status log
 
+- **2026-07-08** - model set to one program crate per prover over the shared
+  `ticketing-interface`; the Creusot baseline crate renamed `ticketing-program`
+  -> `ticketing-creusot` (SBF artifact `ticketing_creusot.so`, proof sessions
+  under `verif/ticketing_creusot_rlib/`).
 - **2026-07-08** - roster fixed at eight tools, order set (Kani next), this
   document created. Creusot baseline already wired (23 proof sessions under
   `verif/`).

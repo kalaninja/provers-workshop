@@ -1,0 +1,66 @@
+[package]
+name = "ticketing-creusot"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# `lib` first: Creusot and host tests build the rlib; `cdylib` is what
+# `cargo build-sbf` links into the deployable `.so`.
+[lib]
+crate-type = ["lib", "cdylib"]
+
+[lints]
+workspace = true
+
+[dependencies]
+pinocchio = { workspace = true, features = ["cpi"] }
+pinocchio-log = { workspace = true, optional = true }
+pinocchio-system = { workspace = true }
+
+ticketing-interface = { workspace = true }
+ticketing-macros = { workspace = true }
+
+# The Creusot verifier compiles the crate with `--cfg creusot`; only then is
+# creusot-std (specification macros + logic types) linked. Ordinary host and
+# SBF builds never see it.
+[target.'cfg(creusot)'.dependencies]
+creusot-std = { workspace = true }
+
+[dev-dependencies]
+bytemuck = { workspace = true }
+mollusk-svm = { workspace = true }
+solana-account = { workspace = true }
+solana-instruction = { workspace = true }
+solana-program-error = { workspace = true }
+solana-pubkey = { workspace = true }
+solana-sdk-ids = { workspace = true }
+
+ticketing-interface = { workspace = true, features = ["test-utils"] }
+
+[features]
+default = []
+# Gates the `entrypoint!` registration so the crate can be linked as a plain
+# rlib (host tests, Creusot) without clashing over the program entrypoint.
+bpf-entrypoint = []
+# Compiles `pinocchio_log` instruction tracing into the dispatcher.
+logging = ["dep:pinocchio-log"]
+
+# Mollusk integration tests load the SBF `.so` built by `cargo build-sbf`, so
+# they only make sense with the entrypoint compiled in; the required-features
+# gate keeps them out of the default host `cargo test` lane.
+[[test]]
+name = "event_create"
+required-features = ["bpf-entrypoint"]
+
+[[test]]
+name = "ticket_buy"
+required-features = ["bpf-entrypoint"]
+
+[[test]]
+name = "event_close"
+required-features = ["bpf-entrypoint"]
+
+[[test]]
+name = "slot_enforcement"
+required-features = ["bpf-entrypoint"]

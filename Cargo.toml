@@ -9,7 +9,7 @@ license = "Apache-2.0"
 publish = false
 
 [workspace.metadata.creusot]
-default-members = ["ticketing-program"]
+default-members = ["ticketing-creusot"]
 
 [workspace.dependencies]
 borsh = { version = "1.6.1", features = ["derive"] }

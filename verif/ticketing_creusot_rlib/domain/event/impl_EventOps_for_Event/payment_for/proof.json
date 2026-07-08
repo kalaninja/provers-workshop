@@ -1,0 +1,10 @@
+{
+  "profile": [],
+  "proofs": {
+    "Coma": {
+      "vc_ax_checked_mul_NonZero_u64": { "prover": "alt-ergo", "time": 0.02 },
+      "vc_ok_or_NonZero_u64": { "prover": "alt-ergo", "time": 0.027 },
+      "vc_payment_for_Event": { "prover": "alt-ergo", "time": 0.037 }
+    }
+  }
+}

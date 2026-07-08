@@ -1,0 +1,20 @@
+{
+  "profile": [],
+  "proofs": {
+    "Coma": {
+      "vc_branch_Result_unit_ProgramError": {
+        "prover": "alt-ergo",
+        "time": 0.029
+      },
+      "vc_close_event": { "prover": "cvc5", "time": 0.074 },
+      "vc_close_sales_Event": { "prover": "alt-ergo", "time": 0.025 },
+      "vc_elim_Break": { "prover": "alt-ergo", "time": 0.026 },
+      "vc_from_ProgramError": { "prover": "alt-ergo", "time": 0.03 },
+      "vc_from_residual_Result_unit_ProgramError": {
+        "prover": "alt-ergo",
+        "time": 0.03
+      },
+      "vc_validate_organizer_Event": { "prover": "alt-ergo", "time": 0.018 }
+    }
+  }
+}

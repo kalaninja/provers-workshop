@@ -1,0 +1,28 @@
+{
+  "profile": [],
+  "proofs": {
+    "Coma": {
+      "vc_branch_Result_NonZero_u64_ProgramError": {
+        "prover": "alt-ergo",
+        "time": 0.033
+      },
+      "vc_branch_Result_unit_ProgramError": {
+        "prover": "alt-ergo",
+        "time": 0.027
+      },
+      "vc_elim_Break": { "prover": "alt-ergo", "time": 0.024 },
+      "vc_elim_Break'0": { "prover": "alt-ergo", "time": 0.022 },
+      "vc_elim_Continue": { "prover": "alt-ergo", "time": 0.029 },
+      "vc_from_ProgramError": { "prover": "alt-ergo", "time": 0.029 },
+      "vc_from_residual_Result_tup2_NonZero_u64_Ticket_ProgramError": {
+        "prover": "alt-ergo",
+        "time": 0.029
+      },
+      "vc_new_Ticket": { "prover": "alt-ergo", "time": 0.027 },
+      "vc_payment_for_Event": { "prover": "alt-ergo", "time": 0.033 },
+      "vc_purchase": { "prover": "cvc5", "time": 0.257 },
+      "vc_record_sale_Event": { "prover": "alt-ergo", "time": 0.026 },
+      "vc_validate_organizer_Event": { "prover": "alt-ergo", "time": 0.019 }
+    }
+  }
+}

@@ -19,7 +19,7 @@
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-flows="$root/crates/ticketing/program/src/flows"
+flows="$root/crates/ticketing/creusot/src/flows"
 
 missing="$(
     for f in "$flows"/*.rs; do

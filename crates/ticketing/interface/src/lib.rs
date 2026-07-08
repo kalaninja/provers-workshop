@@ -2,8 +2,9 @@
 //!
 //! Contains the on-chain account state types, instruction discriminator enum,
 //! instruction argument structs, PDA derivation helpers, and layout constants.
-//! Consumed by `ticketing-program` (the Pinocchio runtime handlers) and by any
-//! off-chain client that needs the byte-level wire shapes.
+//! Consumed by the per-prover program crates (e.g. `ticketing-creusot`, the
+//! Pinocchio runtime handlers) and by any off-chain client that needs the
+//! byte-level wire shapes.
 //!
 //! The [`wire`] module hosts framework-agnostic byte-layout primitives; the
 //! [`program`] module hosts the Pinocchio program-building layer (account

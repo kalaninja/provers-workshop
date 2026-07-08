@@ -1,0 +1,9 @@
+{
+  "profile": [],
+  "proofs": {
+    "Coma": {
+      "vc_ax_eq_Address": { "prover": "alt-ergo", "time": 0.029 },
+      "vc_validate_organizer_Event": { "prover": "alt-ergo", "time": 0.021 }
+    }
+  }
+}

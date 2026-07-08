@@ -9,9 +9,9 @@
 ## Repo Layout
 
 - `crates/ticketing/interface` - wire layer: byte layouts, PDA helpers, instruction decoding, plus
-  the inlined `wire/` and `program/` framework modules
-- `crates/ticketing/program` - the Pinocchio program: trusted shells (`instructions/`), verified
-  cores (`flows/`), domain predicates and axioms (`domain/`)
+  the inlined `wire/` and `program/` framework modules; shared by every prover crate
+- `crates/ticketing/creusot` - the Creusot program crate (one crate per prover): trusted shells
+  (`instructions/`), verified cores (`flows/`), domain predicates and axioms (`domain/`)
 - `crates/ticketing/client` - codama-rendered Rust client; `src/generated/` is generated output and
   must not be hand-edited (regenerate via `just solana gen-client`)
 - `crates/ticketing/macros` - the program's proc-macros: `creusot_extension`, the
@@ -19,7 +19,8 @@
   stand-ins
 - `idl/ticketing.json` - committed codama IDL, regenerated via `just solana gen-idl`
 - `clients/` - codama-js codegen harness (runs in the node tooling image)
-- `verif/` - committed Creusot proof sessions (one `proof.json` per verification condition)
+- `verif/` - committed Creusot proof sessions per prover crate (`verif/ticketing_creusot_rlib/`,
+  one `proof.json` per verification condition)
 
 ## Source Of Truth
 

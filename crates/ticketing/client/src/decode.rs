@@ -13,7 +13,7 @@ use borsh::BorshDeserialize;
 
 use crate::accounts::{EVENT_DISCRIMINATOR, Event, TICKET_DISCRIMINATOR, Ticket};
 
-/// A ticketing-program account whose first 8 bytes are a fixed discriminator.
+/// A ticketing program account whose first 8 bytes are a fixed discriminator.
 ///
 /// Implemented for every generated account so [`decode_checked`] can verify the
 /// discriminator before borsh-deserializing. The provided methods give a

@@ -1,7 +1,7 @@
 //! SBF-executing integration tests for the generated client.
 //!
 //! Unlike `wire_parity.rs` (which only diffs encodings against the interface),
-//! these run the real `ticketing_program.so` under Mollusk, driving the whole
+//! these run the real `ticketing_creusot.so` under Mollusk, driving the whole
 //! event lifecycle **entirely through the generated client's instruction
 //! builders + PDA finders**, then decoding every resulting account with the
 //! client's decoders. This exercises all three instruction builders and both
@@ -30,7 +30,7 @@ use ticketing_interface::test_utils::{
 
 /// SBF artefact name Mollusk loads (Cargo normalises the package name to
 /// this).
-const PROGRAM_NAME: &str = "ticketing_program";
+const PROGRAM_NAME: &str = "ticketing_creusot";
 
 const CAPACITY: u64 = 500;
 const PRICE_LAMPORTS: u64 = 2_000_000;

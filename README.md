@@ -30,8 +30,9 @@ the program byte-for-byte.
 ## The provers
 
 The verified cores stay fixed; the tool that proves them is the variable. Each
-prover gets its own `just` lane and its own proof artifacts, so results sit
-side by side on identical contracts.
+prover gets its own program crate over the shared `ticketing-interface`, plus
+its own `just` lane and proof artifacts, so results sit side by side on
+identical contracts.
 
 | # | Prover | Approach | Status |
 | --- | --- | --- | --- |
@@ -44,7 +45,7 @@ side by side on identical contracts.
 | 7 | [VeriFast](https://github.com/verifast/verifast) | separation logic | on hold |
 | 8 | [Prusti](https://github.com/viperproject/prusti-dev) | deductive, Viper backend | on hold |
 
-Creusot is the only lane wired up today. The ordering rationale, integration
+Creusot is the only prover crate wired up today. The ordering rationale, integration
 ground rules, per-prover notes, and the running comparison live in
 [docs/provers.md](docs/provers.md). What we compare per prover: what has to be
 marked trusted, how the contracts read, proof and replay speed, and how far
@@ -84,7 +85,7 @@ just --list                  # everything below, discoverable
 just rust fmt / fmt-check    # pinned-nightly rustfmt
 just rust check / clippy / test / machete
 
-just solana build            # cargo build-sbf -> target/deploy/ticketing_program.so
+just solana build            # cargo build-sbf -> target/deploy/ticketing_creusot.so
 just solana test-it          # Mollusk integration tests against the .so
 just solana gen-idl          # interface crate -> idl/ticketing.json
 just solana gen-client       # idl/ticketing.json -> crates/ticketing/client/src/generated
@@ -109,14 +110,14 @@ scripts/docker/run-tooling.sh   docker-run wrapper every recipe goes through
 scripts/hooks/pre-push      change-scoped checks (rust lane, creusot replay)
 just/                       recipe modules (rust, solana, creusot, tooling)
 
-crates/ticketing/interface  wire layer: byte layouts + program-side helpers
-crates/ticketing/program    the Pinocchio program: trusted shells + verified cores
+crates/ticketing/interface  wire layer: byte layouts + program-side helpers (shared by all provers)
+crates/ticketing/creusot    the Creusot program crate: trusted shells + verified cores (one crate per prover)
 crates/ticketing/client     codama-rendered Rust client + handwritten checked decoders
 crates/ticketing/macros     proc-macros: creusot_extension, codegen derives, no-op codama stand-ins
 
 idl/ticketing.json          committed codama IDL (regenerated via `just solana gen-idl`)
 clients/                    codama-js codegen harness (runs in the node image)
-verif/                      committed Creusot proof sessions (one proof.json per VC)
+verif/                      committed proof sessions per prover crate (verif/ticketing_creusot_rlib, one proof.json per VC)
 why3find.json               prover configuration (alt-ergo, z3, cvc5 + tactics)
 docs/provers.md             prover roadmap: roster, order, notes, running comparison
 ```
@@ -162,7 +163,7 @@ program reads or writes:
 
 ### Verified cores (Creusot baseline)
 
-`crates/ticketing/program` is split along the verification boundary:
+`crates/ticketing/creusot` is split along the verification boundary:
 
 - `src/instructions/` - **trusted shells** (`#[trusted]` under Creusot):
   account parsing, PDA creation, clock reads, the lamport-transfer CPI,
@@ -185,10 +186,12 @@ verification condition with SMT solvers, and records one `proof.json` per VC
 under `verif/`; `just creusot replay` re-checks those sessions
 deterministically and is wired into the pre-push hook.
 
-This is the layer the workshop swaps. A new prover keeps `src/flows` and
-`src/domain` as its target, re-expresses their contracts in its own syntax,
-marks its own trusted shells, and adds a sibling `just` lane and proof-artifact
-directory alongside Creusot's - leaving the program's behavior byte-identical.
+This is the layer the workshop swaps. A new prover gets its own program crate
+(`crates/ticketing/<prover>`) over the same `ticketing-interface`, carrying
+identical `src/flows` and `src/domain` core bodies re-expressed in its syntax,
+its own trusted shells, and a sibling `just` lane and proof-artifact directory
+alongside Creusot's - leaving the program's behavior byte-identical across
+prover crates.
 
 ### IDL and client
 
