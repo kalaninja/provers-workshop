@@ -1,0 +1,16 @@
+[package]
+name = "ticketing-kani"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["lib"]
+
+[lints]
+workspace = true
+
+# No [dependencies]: cargo-kani injects the `kani` crate under `--cfg kani`, and all Kani
+# code is `#[cfg(kani)]`-gated, so `cargo check --workspace` / SBF builds compile this as an
+# empty lib with zero overhead. ticketing-interface + kani::Arbitrary arrive with the cores.

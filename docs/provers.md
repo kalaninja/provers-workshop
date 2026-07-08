@@ -14,7 +14,7 @@ starting its lane.
 | # | Prover | Paradigm | Status |
 | --- | --- | --- | --- |
 | 1 | [Creusot](https://github.com/creusot-rs/creusot) | deductive, translated to Why3 + SMT | wired up (the baseline) |
-| 2 | [Kani](https://github.com/model-checking/kani) | bounded model checking (CBMC) | next |
+| 2 | [Kani](https://github.com/model-checking/kani) | bounded model checking (CBMC) | lane scaffolded |
 | 3 | [Verus](https://github.com/verus-lang/verus) | SMT over a verification dialect of Rust | planned |
 | 4 | [Flux](https://github.com/flux-rs/flux) | refinement (liquid) types | planned |
 | 5 | [Aeneas](https://github.com/AeneasVerif/aeneas) | functional translation to Lean, interactive proofs | planned |
@@ -118,11 +118,18 @@ Lessons that set the baseline for comparison:
 - Proof sessions replay deterministically: reviewable artifacts, no solver
   roulette in CI.
 
-### 2. Kani - next
+### 2. Kani - lane scaffolded
 
 [Kani](https://github.com/model-checking/kani) (AWS) compiles MIR to goto-C
 and bit-blasts it through CBMC. It is the workhorse of the
 [Rust standard library verification campaign](https://github.com/model-checking/verify-rust-std).
+
+**Status:** the tooling lane is in place - `mise.kani.toml`, a `kani-tooling`
+Docker stage (`cargo install kani-verifier` + `cargo kani setup`, pinned
+0.67.0), `just kani verify`, and a `ticketing-kani` crate carrying one smoke
+`#[kani::proof]`. Still to come: porting the `flows/`/`domain/`/`instructions/`
+cores, the `cfg(kani)` spec layer, and the contracts (see the integration
+sketch below).
 
 Why second: a genuinely different paradigm at the lowest integration cost. The
 gating maps one-to-one onto the existing scheme (Kani even sets `--cfg kani`
@@ -272,6 +279,10 @@ annotation-based.
 
 ## Status log
 
+- **2026-07-08** - Kani lane scaffolded: `mise.kani.toml`, `kani-tooling` Docker
+  stage, `just kani` (`version`/`verify`), `run-tooling.sh` KANI_HOME plumbing, a
+  narrow pre-push glob, `cfg(kani)` registered in check-cfg, and a `ticketing-kani`
+  crate with one smoke `#[kani::proof]`. Cores/contracts pending.
 - **2026-07-08** - model set to one program crate per prover over the shared
   `ticketing-interface`; the Creusot baseline crate renamed `ticketing-program`
   -> `ticketing-creusot` (SBF artifact `ticketing_creusot.so`, proof sessions

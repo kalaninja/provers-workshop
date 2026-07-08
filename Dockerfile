@@ -123,3 +123,31 @@ RUN --mount=type=secret,id=github_token \
 
 # Cheap self-test in a separate layer so the expensive install above stays cached.
 RUN command -v cargo-creusot
+
+FROM tooling-base AS kani-tooling
+
+# FROM tooling-base, not rust-tooling: like Creusot, Kani needs only a base cargo to build
+# kani-verifier and dispatch `cargo kani`; it ships/uses its OWN nightly toolchain + CBMC
+# backend (fetched by `cargo kani setup`).
+COPY mise.kani.toml ./
+
+# `cargo kani setup` downloads the kani-compiler, CBMC/kissat backend, and a matching nightly
+# under KANI_HOME. Bake it to a fixed /opt/kani that run-tooling.sh points KANI_HOME at when
+# MISE_ENV=kani. Setup symlinks the toolchain into /opt/rustup (RUSTUP_HOME), baked here too.
+ENV KANI_HOME=/opt/kani
+
+# mise installs the wrapper stable rust and provisions rustup (RUSTUP_HOME=/opt/rustup);
+# `cargo kani setup` shells out to rustup to install its nightly, then curls its release
+# bundle (curl + tar are in tooling-base). The prebuilt CBMC binaries only need libstdc++
+# (from build-essential) and the glibc loader, so no extra apt packages are required.
+RUN --mount=type=secret,id=github_token \
+    export GITHUB_TOKEN="$(cat /run/secrets/github_token 2>/dev/null || true)" \
+    && mise install -E kani rust \
+    && MISE_ENV=kani mise exec rust -- cargo install --locked --version 0.67.0 kani-verifier \
+    && ln -sf /opt/cargo/bin/cargo-kani /usr/local/bin/cargo-kani \
+    && ln -sf /opt/cargo/bin/kani /usr/local/bin/kani \
+    && PATH="/opt/cargo/bin:${PATH}" MISE_ENV=kani mise exec rust -- cargo kani setup \
+    && chmod -R a+rwX /opt/kani /opt/cargo /opt/mise /opt/rustup
+
+# Cheap self-test in a separate layer so the expensive setup above stays cached.
+RUN command -v cargo-kani

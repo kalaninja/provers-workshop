@@ -32,3 +32,6 @@ build-node: (_build "node-tooling" node_tooling_image)
 
 # Build the Creusot formal-verification tooling image (creusot nightly + Why3/SMT)
 build-creusot: (_build "creusot-tooling" creusot_tooling_image)
+
+# Build the Kani bounded-model-checking tooling image (kani-verifier + CBMC backend)
+build-kani: (_build "kani-tooling" kani_tooling_image)

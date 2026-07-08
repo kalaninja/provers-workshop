@@ -1,0 +1,5 @@
+# Wrapper toolchain for the Kani lane, selected with MISE_ENV=kani. Kani downloads and
+# uses its OWN nightly toolchain + CBMC backend via `cargo kani setup`; this stable rust
+# only provides the `cargo` that dispatches `cargo kani` and builds kani-verifier.
+[tools]
+rust = { version = "1.96.0", profile = "minimal" }

@@ -35,6 +35,13 @@ if [[ "${MISE_ENV:-}" == "creusot" ]]; then
   )
 fi
 
+# Kani bakes its compiler, CBMC backend, and matching toolchain under /opt/kani (kani-tooling
+# stage, KANI_HOME=/opt/kani); point KANI_HOME there so `cargo kani` resolves them despite the
+# per-run HOME/XDG rewrite. The baked toolchain symlink resolves via RUSTUP_HOME=/opt/rustup.
+if [[ "${MISE_ENV:-}" == "kani" ]]; then
+  extra_env+=(--env "KANI_HOME=/opt/kani")
+fi
+
 mkdir -p \
   "${host_cache_root}/cargo/git" \
   "${host_cache_root}/cargo/registry" \

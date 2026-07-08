@@ -41,9 +41,11 @@ run() {
 
 rust_changed=false
 creusot_changed=false
+kani_changed=false
 
 has '^(crates/|clients/|idl/|Cargo\.toml|Cargo\.lock|rustfmt\.toml|clippy\.toml|mise(\.[a-z]+)?\.toml|Dockerfile)' && rust_changed=true
 has '^(crates/ticketing/|mise\.creusot\.toml|just/creusot\.just|why3find\.json|verif/|Dockerfile)' && creusot_changed=true
+has '^(crates/ticketing/kani/|mise\.kani\.toml|just/kani\.just)' && kani_changed=true
 
 if $rust_changed; then
   run just rust fmt-check
@@ -55,6 +57,10 @@ fi
 
 if $creusot_changed; then
   run just creusot replay
+fi
+
+if $kani_changed; then
+  run just kani verify
 fi
 
 printf '\npre-push: all checks passed\n'

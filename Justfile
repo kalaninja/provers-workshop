@@ -7,6 +7,9 @@ mod solana 'just/solana.just'
 # Formal verification commands (Creusot)
 mod creusot 'just/creusot.just'
 
+# Bounded model checking commands (Kani)
+mod kani 'just/kani.just'
+
 # Tooling commands
 mod tooling 'just/tooling.just'
 

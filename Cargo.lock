@@ -5149,6 +5149,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "ticketing-kani"
+version = "0.1.0"
+
+[[package]]
 name = "ticketing-macros"
 version = "0.1.0"
 dependencies = [
