@@ -1,9 +1,15 @@
-# pinocchio-workshop
+# provers-workshop
 
-A small but complete [Pinocchio](https://github.com/anza-xyz/pinocchio) Solana
-program - an event-ticketing toy - built the way we build production programs.
-It is the companion repository for a three-part article series, one part per
-practice:
+A workshop for putting different Rust formal-verification tools on the *same*
+real Solana program and comparing them. The program - a small but complete
+[Pinocchio](https://github.com/anza-xyz/pinocchio) event-ticketing toy, built
+the way we build production programs - and its verified decision cores are the
+fixed target; each prover is wired in behind the same `just` workflow, so its
+proof style, ergonomics, and trusted computing base can be judged on realistic
+code instead of a synthetic benchmark.
+
+The base program stands on three practices, and the comparison happens on top
+of them:
 
 1. **Hermetic builds** - every command runs inside Docker tooling images
    through `just` + [`mise`](https://mise.jdx.dev); the host needs Docker and
@@ -11,26 +17,38 @@ practice:
 2. **Zero-copy wire data** - on-chain state and instruction payloads are
    `#[repr(C)]` structs cast directly from account bytes, with every byte
    validated by `bytemuck::CheckedBitPattern`.
-3. **Formal verification** - each instruction's decision core is proved with
-   [Creusot](https://github.com/creusot-rs/creusot): no overflow, invariant
-   preservation, exact state transitions. The imperative shells stay trusted.
+3. **Verified cores** - each instruction's decision core is a pure function
+   carrying a machine-checked contract: no overflow, invariant preservation,
+   exact state transitions, while the imperative shells stay trusted. *This is
+   the layer the workshop varies* - swapping out the tool that discharges those
+   contracts.
 
 Plus the supporting cast: a [codama](https://github.com/codama-idl/codama) IDL
 generated from the interface crate and a rendered Rust client tested against
 the program byte-for-byte.
 
-## The series
+## The provers
 
-This repo is the code a three-part series walks through - one part per practice
-above. Links land here as each part is published:
+The verified cores stay fixed; the tool that proves them is the variable. Each
+prover gets its own `just` lane and its own proof artifacts, so results sit
+side by side on identical contracts.
 
-| Part | Article | Practice |
-| --- | --- | --- |
-| 1 | An AI Writes My Solana Programs. Here's the Environment That Makes That Safe | Hermetic builds |
-| 2 | Zero-Copy or Bust: Solana Data Models an AI Can't Quietly Break | Zero-copy wire data |
-| 3 | I Don't Review My AI's Arithmetic. A Theorem Prover Does | Formal verification |
+| # | Prover | Approach | Status |
+| --- | --- | --- | --- |
+| 1 | [Creusot](https://github.com/creusot-rs/creusot) | deductive, translated to Why3 + SMT (alt-ergo / z3 / cvc5) | wired up |
+| 2 | [Kani](https://github.com/model-checking/kani) | bounded model checking (CBMC) | queued (next) |
+| 3 | [Verus](https://github.com/verus-lang/verus) | SMT over a verification dialect of Rust | queued |
+| 4 | [Flux](https://github.com/flux-rs/flux) | refinement (liquid) types | queued |
+| 5 | [Aeneas](https://github.com/AeneasVerif/aeneas) | functional translation to Lean | queued |
+| 6 | [hax](https://github.com/cryspen/hax) | translation to F* / Rocq / Lean | queued |
+| 7 | [VeriFast](https://github.com/verifast/verifast) | separation logic | on hold |
+| 8 | [Prusti](https://github.com/viperproject/prusti-dev) | deductive, Viper backend | on hold |
 
-<!-- On publication, link each title: [<title>](<url>) -->
+Creusot is the only lane wired up today. The ordering rationale, integration
+ground rules, per-prover notes, and the running comparison live in
+[docs/provers.md](docs/provers.md). What we compare per prover: what has to be
+marked trusted, how the contracts read, proof and replay speed, and how far
+the cores must bend to fit the tool.
 
 ## The program
 
@@ -100,6 +118,7 @@ idl/ticketing.json          committed codama IDL (regenerated via `just solana g
 clients/                    codama-js codegen harness (runs in the node image)
 verif/                      committed Creusot proof sessions (one proof.json per VC)
 why3find.json               prover configuration (alt-ergo, z3, cvc5 + tactics)
+docs/provers.md             prover roadmap: roster, order, notes, running comparison
 ```
 
 ## How the pieces fit
@@ -141,7 +160,7 @@ program reads or writes:
   borrow that rejects clock regressions up front and stamps `updated_slot` on
   drop.
 
-### Proofs
+### Verified cores (Creusot baseline)
 
 `crates/ticketing/program` is split along the verification boundary:
 
@@ -165,6 +184,11 @@ prove` (in the creusot image) translates the crate to Why3, discharges every
 verification condition with SMT solvers, and records one `proof.json` per VC
 under `verif/`; `just creusot replay` re-checks those sessions
 deterministically and is wired into the pre-push hook.
+
+This is the layer the workshop swaps. A new prover keeps `src/flows` and
+`src/domain` as its target, re-expresses their contracts in its own syntax,
+marks its own trusted shells, and adds a sibling `just` lane and proof-artifact
+directory alongside Creusot's - leaving the program's behavior byte-identical.
 
 ### IDL and client
 

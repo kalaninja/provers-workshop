@@ -3,6 +3,7 @@
 ## Read First
 
 - `README.md` for the project overview, command table, and how the pieces fit
+- `docs/provers.md` for the prover roadmap: roster, order, statuses, per-prover notes, comparison
 - For Solana-specific work, load the vendored `solana-dev` skill from `.agents/skills/solana-dev/`
 
 ## Repo Layout
