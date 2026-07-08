@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+
+zero='0000000000000000000000000000000000000000'
+
+changed_files=""
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [[ -z "${local_ref:-}" ]] && continue
+  if [[ "${local_sha}" == "${zero}" ]]; then
+    continue
+  fi
+  if [[ "${remote_sha}" == "${zero}" ]]; then
+    base="$(git merge-base "${local_sha}" origin/main 2>/dev/null || true)"
+    if [[ -z "${base}" ]]; then
+      range="${local_sha}"
+    else
+      range="${base}..${local_sha}"
+    fi
+  else
+    range="${remote_sha}..${local_sha}"
+  fi
+  changed_files+="$(git diff --name-only "${range}" 2>/dev/null || true)"$'\n'
+done
+
+trimmed="$(printf '%s' "${changed_files}" | tr -d '[:space:]')"
+if [[ -z "${trimmed}" ]]; then
+  exit 0
+fi
+
+has() {
+  printf '%s' "${changed_files}" | grep -qE "$1"
+}
+
+run() {
+  printf '\n→ %s\n' "$*"
+  "$@"
+}
+
+rust_changed=false
+creusot_changed=false
+
+has '^(crates/|clients/|idl/|Cargo\.toml|Cargo\.lock|rustfmt\.toml|clippy\.toml|mise(\.[a-z]+)?\.toml|Dockerfile)' && rust_changed=true
+has '^(crates/ticketing/|mise\.creusot\.toml|just/creusot\.just|why3find\.json|verif/|Dockerfile)' && creusot_changed=true
+
+if $rust_changed; then
+  run just rust fmt-check
+  run just rust clippy
+  run just rust test
+  run just solana test-it
+  run just rust machete
+fi
+
+if $creusot_changed; then
+  run just creusot replay
+fi
+
+printf '\npre-push: all checks passed\n'

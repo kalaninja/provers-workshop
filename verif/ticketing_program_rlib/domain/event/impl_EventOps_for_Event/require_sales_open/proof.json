@@ -1,0 +1,8 @@
+{
+  "profile": [],
+  "proofs": {
+    "Coma": {
+      "vc_require_sales_open_Event": { "prover": "alt-ergo", "time": 0.028 }
+    }
+  }
+}

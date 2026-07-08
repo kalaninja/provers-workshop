@@ -1,0 +1,14 @@
+{
+  "name": "ticketing-clients-codegen",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Codama client codegen for the ticketing program",
+  "scripts": {
+    "generate": "codama run --all",
+    "generate:rust": "codama run rust"
+  },
+  "devDependencies": {
+    "@codama/renderers-rust": "3.1.0",
+    "codama": "1.6.0"
+  }
+}

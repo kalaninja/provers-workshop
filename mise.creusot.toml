@@ -1,0 +1,4 @@
+# Creusot's pinned nightly, selected with MISE_ENV=creusot. Creusot is a custom rustc driver, so it
+# needs rustc-dev + llvm-tools; mirror Creusot's own rust-toolchain when upgrading.
+[tools]
+rust = { version = "nightly-2026-04-21", profile = "minimal", components = "rustc-dev,llvm-tools,rustfmt" }

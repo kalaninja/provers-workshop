@@ -1,0 +1,10 @@
+{
+  "profile": [],
+  "proofs": {
+    "Coma": {
+      "vc_account_header_Ticket": { "prover": "alt-ergo", "time": 0.011 },
+      "vc_new_Ticket": { "prover": "alt-ergo", "time": 0.02 },
+      "vc_zero_reserved": { "prover": "alt-ergo", "time": 0.024 }
+    }
+  }
+}

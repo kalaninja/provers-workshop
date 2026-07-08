@@ -1,0 +1,755 @@
+{
+  "additionalPrograms": [],
+  "kind": "rootNode",
+  "program": {
+    "accounts": [
+      {
+        "data": {
+          "fields": [
+            {
+              "docs": [
+                "Versioned account header: discriminator + schema version."
+              ],
+              "kind": "structFieldTypeNode",
+              "name": "header",
+              "type": {
+                "kind": "fixedSizeTypeNode",
+                "size": 8,
+                "type": {
+                  "kind": "bytesTypeNode"
+                }
+              }
+            },
+            {
+              "docs": [
+                "Slot when the event account was created."
+              ],
+              "kind": "structFieldTypeNode",
+              "name": "createdSlot",
+              "type": {
+                "endian": "le",
+                "format": "u64",
+                "kind": "numberTypeNode"
+              }
+            },
+            {
+              "docs": [
+                "Slot when the event account was last updated."
+              ],
+              "kind": "structFieldTypeNode",
+              "name": "updatedSlot",
+              "type": {
+                "endian": "le",
+                "format": "u64",
+                "kind": "numberTypeNode"
+              }
+            },
+            {
+              "docs": [
+                "Organizer authority that created the event and receives payments."
+              ],
+              "kind": "structFieldTypeNode",
+              "name": "organizer",
+              "type": {
+                "kind": "publicKeyTypeNode"
+              }
+            },
+            {
+              "docs": [
+                "Total number of tickets that can be sold. Must be non-zero."
+              ],
+              "kind": "structFieldTypeNode",
+              "name": "capacity",
+              "type": {
+                "endian": "le",
+                "format": "u64",
+                "kind": "numberTypeNode"
+              }
+            },
+            {
+              "docs": [
+                "Price of one ticket in lamports. Must be non-zero."
+              ],
+              "kind": "structFieldTypeNode",
+              "name": "priceLamports",
+              "type": {
+                "endian": "le",
+                "format": "u64",
+                "kind": "numberTypeNode"
+              }
+            },
+            {
+              "docs": [
+                "Number of tickets sold so far."
+              ],
+              "kind": "structFieldTypeNode",
+              "name": "sold",
+              "type": {
+                "endian": "le",
+                "format": "u64",
+                "kind": "numberTypeNode"
+              }
+            },
+            {
+              "docs": [
+                "Human-readable event name."
+              ],
+              "kind": "structFieldTypeNode",
+              "name": "name",
+              "type": {
+                "kind": "definedTypeLinkNode",
+                "name": "eventName"
+              }
+            },
+            {
+              "docs": [
+                "Canonical event PDA bump."
+              ],
+              "kind": "structFieldTypeNode",
+              "name": "bump",
+              "type": {
+                "endian": "le",
+                "format": "u8",
+                "kind": "numberTypeNode"
+              }
+            },
+            {
+              "docs": [
+                "Current event lifecycle status."
+              ],
+              "kind": "structFieldTypeNode",
+              "name": "status",
+              "type": {
+                "kind": "definedTypeLinkNode",
+                "name": "eventStatus"
+              }
+            },
+            {
+              "docs": [
+                "Alignment / forward-compat padding; must be all-zero."
+              ],
+              "kind": "structFieldTypeNode",
+              "name": "reserved",
+              "type": {
+                "kind": "fixedSizeTypeNode",
+                "size": 4,
+                "type": {
+                  "kind": "bytesTypeNode"
+                }
+              }
+            }
+          ],
+          "kind": "structTypeNode"
+        },
+        "discriminators": [
+          {
+            "constant": {
+              "kind": "constantValueNode",
+              "type": {
+                "kind": "fixedSizeTypeNode",
+                "size": 8,
+                "type": {
+                  "kind": "bytesTypeNode"
+                }
+              },
+              "value": {
+                "data": "544b5445564e5401",
+                "encoding": "base16",
+                "kind": "bytesValueNode"
+              }
+            },
+            "kind": "constantDiscriminatorNode",
+            "offset": 0
+          }
+        ],
+        "docs": [
+          "Root account for one ticketed event."
+        ],
+        "kind": "accountNode",
+        "name": "event"
+      },
+      {
+        "data": {
+          "fields": [
+            {
+              "docs": [
+                "Versioned account header: discriminator + schema version."
+              ],
+              "kind": "structFieldTypeNode",
+              "name": "header",
+              "type": {
+                "kind": "fixedSizeTypeNode",
+                "size": 8,
+                "type": {
+                  "kind": "bytesTypeNode"
+                }
+              }
+            },
+            {
+              "docs": [
+                "Slot when the ticket account was created."
+              ],
+              "kind": "structFieldTypeNode",
+              "name": "createdSlot",
+              "type": {
+                "endian": "le",
+                "format": "u64",
+                "kind": "numberTypeNode"
+              }
+            },
+            {
+              "docs": [
+                "Slot when the ticket account was last updated."
+              ],
+              "kind": "structFieldTypeNode",
+              "name": "updatedSlot",
+              "type": {
+                "endian": "le",
+                "format": "u64",
+                "kind": "numberTypeNode"
+              }
+            },
+            {
+              "docs": [
+                "Event this ticket belongs to."
+              ],
+              "kind": "structFieldTypeNode",
+              "name": "event",
+              "type": {
+                "kind": "publicKeyTypeNode"
+              }
+            },
+            {
+              "docs": [
+                "Buyer that paid for this ticket."
+              ],
+              "kind": "structFieldTypeNode",
+              "name": "buyer",
+              "type": {
+                "kind": "publicKeyTypeNode"
+              }
+            },
+            {
+              "docs": [
+                "Number of admissions purchased. Must be non-zero."
+              ],
+              "kind": "structFieldTypeNode",
+              "name": "quantity",
+              "type": {
+                "endian": "le",
+                "format": "u64",
+                "kind": "numberTypeNode"
+              }
+            },
+            {
+              "docs": [
+                "Lamports paid for the ticket (`quantity * price_lamports`). Must be",
+                "non-zero."
+              ],
+              "kind": "structFieldTypeNode",
+              "name": "paidLamports",
+              "type": {
+                "endian": "le",
+                "format": "u64",
+                "kind": "numberTypeNode"
+              }
+            },
+            {
+              "docs": [
+                "Canonical ticket PDA bump."
+              ],
+              "kind": "structFieldTypeNode",
+              "name": "bump",
+              "type": {
+                "endian": "le",
+                "format": "u8",
+                "kind": "numberTypeNode"
+              }
+            },
+            {
+              "docs": [
+                "Alignment / forward-compat padding; must be all-zero."
+              ],
+              "kind": "structFieldTypeNode",
+              "name": "reserved",
+              "type": {
+                "kind": "fixedSizeTypeNode",
+                "size": 7,
+                "type": {
+                  "kind": "bytesTypeNode"
+                }
+              }
+            }
+          ],
+          "kind": "structTypeNode"
+        },
+        "discriminators": [
+          {
+            "constant": {
+              "kind": "constantValueNode",
+              "type": {
+                "kind": "fixedSizeTypeNode",
+                "size": 8,
+                "type": {
+                  "kind": "bytesTypeNode"
+                }
+              },
+              "value": {
+                "data": "544b5454434b5401",
+                "encoding": "base16",
+                "kind": "bytesValueNode"
+              }
+            },
+            "kind": "constantDiscriminatorNode",
+            "offset": 0
+          }
+        ],
+        "docs": [
+          "Per-buyer ticket record for one event."
+        ],
+        "kind": "accountNode",
+        "name": "ticket"
+      }
+    ],
+    "definedTypes": [
+      {
+        "docs": [
+          "Fixed-capacity event name: a `u16` length prefix followed by 64 bytes of",
+          "storage, of which the first `len` are significant."
+        ],
+        "kind": "definedTypeNode",
+        "name": "eventName",
+        "type": {
+          "fields": [
+            {
+              "docs": [
+                "Number of significant bytes in `bytes`."
+              ],
+              "kind": "structFieldTypeNode",
+              "name": "len",
+              "type": {
+                "endian": "le",
+                "format": "u16",
+                "kind": "numberTypeNode"
+              }
+            },
+            {
+              "docs": [
+                "Fixed-capacity UTF-8 storage."
+              ],
+              "kind": "structFieldTypeNode",
+              "name": "bytes",
+              "type": {
+                "kind": "fixedSizeTypeNode",
+                "size": 64,
+                "type": {
+                  "kind": "bytesTypeNode"
+                }
+              }
+            }
+          ],
+          "kind": "structTypeNode"
+        }
+      },
+      {
+        "docs": [
+          "Lifecycle states an `Event` account can occupy."
+        ],
+        "kind": "definedTypeNode",
+        "name": "eventStatus",
+        "type": {
+          "kind": "enumTypeNode",
+          "size": {
+            "endian": "le",
+            "format": "u8",
+            "kind": "numberTypeNode"
+          },
+          "variants": [
+            {
+              "discriminator": 0,
+              "kind": "enumEmptyVariantTypeNode",
+              "name": "salesOpen"
+            },
+            {
+              "discriminator": 1,
+              "kind": "enumEmptyVariantTypeNode",
+              "name": "salesClosed"
+            }
+          ]
+        }
+      }
+    ],
+    "errors": [],
+    "events": [],
+    "instructions": [
+      {
+        "accounts": [
+          {
+            "defaultValue": {
+              "kind": "payerValueNode"
+            },
+            "docs": [
+              "Event organizer and rent payer"
+            ],
+            "isSigner": true,
+            "isWritable": true,
+            "kind": "instructionAccountNode",
+            "name": "organizer"
+          },
+          {
+            "defaultValue": {
+              "kind": "pdaValueNode",
+              "pda": {
+                "kind": "pdaLinkNode",
+                "name": "event"
+              },
+              "seeds": [
+                {
+                  "kind": "pdaSeedValueNode",
+                  "name": "organizer",
+                  "value": {
+                    "kind": "accountValueNode",
+                    "name": "organizer"
+                  }
+                }
+              ]
+            },
+            "docs": [
+              "Event PDA being initialized"
+            ],
+            "isSigner": false,
+            "isWritable": true,
+            "kind": "instructionAccountNode",
+            "name": "event"
+          },
+          {
+            "defaultValue": {
+              "kind": "publicKeyValueNode",
+              "publicKey": "11111111111111111111111111111111"
+            },
+            "docs": [
+              "System program for the create-account CPI"
+            ],
+            "isSigner": false,
+            "isWritable": false,
+            "kind": "instructionAccountNode",
+            "name": "systemProgram"
+          }
+        ],
+        "arguments": [
+          {
+            "defaultValue": {
+              "kind": "numberValueNode",
+              "number": 0
+            },
+            "defaultValueStrategy": "omitted",
+            "kind": "instructionArgumentNode",
+            "name": "discriminator",
+            "type": {
+              "endian": "le",
+              "format": "u8",
+              "kind": "numberTypeNode"
+            }
+          },
+          {
+            "docs": [
+              "Total number of tickets that can be sold. Must be non-zero."
+            ],
+            "kind": "instructionArgumentNode",
+            "name": "capacity",
+            "type": {
+              "endian": "le",
+              "format": "u64",
+              "kind": "numberTypeNode"
+            }
+          },
+          {
+            "docs": [
+              "Price of one ticket in lamports. Must be non-zero."
+            ],
+            "kind": "instructionArgumentNode",
+            "name": "priceLamports",
+            "type": {
+              "endian": "le",
+              "format": "u64",
+              "kind": "numberTypeNode"
+            }
+          },
+          {
+            "docs": [
+              "Human-readable event name."
+            ],
+            "kind": "instructionArgumentNode",
+            "name": "name",
+            "type": {
+              "kind": "definedTypeLinkNode",
+              "name": "eventName"
+            }
+          },
+          {
+            "docs": [
+              "Alignment padding; must be all-zero."
+            ],
+            "kind": "instructionArgumentNode",
+            "name": "reserved",
+            "type": {
+              "kind": "fixedSizeTypeNode",
+              "size": 6,
+              "type": {
+                "kind": "bytesTypeNode"
+              }
+            }
+          }
+        ],
+        "discriminators": [
+          {
+            "kind": "fieldDiscriminatorNode",
+            "name": "discriminator",
+            "offset": 0
+          }
+        ],
+        "docs": [
+          "Creates an event account with a fixed ticket supply and price."
+        ],
+        "kind": "instructionNode",
+        "name": "eventCreate"
+      },
+      {
+        "accounts": [
+          {
+            "defaultValue": {
+              "kind": "payerValueNode"
+            },
+            "docs": [
+              "Ticket buyer; pays and funds the ticket rent"
+            ],
+            "isSigner": true,
+            "isWritable": true,
+            "kind": "instructionAccountNode",
+            "name": "buyer"
+          },
+          {
+            "docs": [
+              "Event with open ticket sales"
+            ],
+            "isSigner": false,
+            "isWritable": true,
+            "kind": "instructionAccountNode",
+            "name": "event"
+          },
+          {
+            "docs": [
+              "Receives the lamport payment; must match the event organizer"
+            ],
+            "isSigner": false,
+            "isWritable": true,
+            "kind": "instructionAccountNode",
+            "name": "organizer"
+          },
+          {
+            "defaultValue": {
+              "kind": "pdaValueNode",
+              "pda": {
+                "kind": "pdaLinkNode",
+                "name": "ticket"
+              },
+              "seeds": [
+                {
+                  "kind": "pdaSeedValueNode",
+                  "name": "event",
+                  "value": {
+                    "kind": "accountValueNode",
+                    "name": "event"
+                  }
+                },
+                {
+                  "kind": "pdaSeedValueNode",
+                  "name": "buyer",
+                  "value": {
+                    "kind": "accountValueNode",
+                    "name": "buyer"
+                  }
+                }
+              ]
+            },
+            "docs": [
+              "Ticket PDA created by this instruction"
+            ],
+            "isSigner": false,
+            "isWritable": true,
+            "kind": "instructionAccountNode",
+            "name": "ticket"
+          },
+          {
+            "defaultValue": {
+              "kind": "publicKeyValueNode",
+              "publicKey": "11111111111111111111111111111111"
+            },
+            "docs": [
+              "System program for the create-account and transfer CPIs"
+            ],
+            "isSigner": false,
+            "isWritable": false,
+            "kind": "instructionAccountNode",
+            "name": "systemProgram"
+          }
+        ],
+        "arguments": [
+          {
+            "defaultValue": {
+              "kind": "numberValueNode",
+              "number": 1
+            },
+            "defaultValueStrategy": "omitted",
+            "kind": "instructionArgumentNode",
+            "name": "discriminator",
+            "type": {
+              "endian": "le",
+              "format": "u8",
+              "kind": "numberTypeNode"
+            }
+          },
+          {
+            "docs": [
+              "Maximum number of admissions the buyer is willing to acquire in this",
+              "purchase. The handler clamps to remaining capacity. Must be non-zero."
+            ],
+            "kind": "instructionArgumentNode",
+            "name": "quantity",
+            "type": {
+              "endian": "le",
+              "format": "u64",
+              "kind": "numberTypeNode"
+            }
+          }
+        ],
+        "discriminators": [
+          {
+            "kind": "fieldDiscriminatorNode",
+            "name": "discriminator",
+            "offset": 0
+          }
+        ],
+        "docs": [
+          "Buys tickets for an event: pays the organizer in lamports and records",
+          "the purchase in a per-buyer ticket account."
+        ],
+        "kind": "instructionNode",
+        "name": "ticketBuy"
+      },
+      {
+        "accounts": [
+          {
+            "docs": [
+              "Event organizer"
+            ],
+            "isSigner": true,
+            "isWritable": false,
+            "kind": "instructionAccountNode",
+            "name": "organizer"
+          },
+          {
+            "docs": [
+              "Transitions SalesOpen to SalesClosed"
+            ],
+            "isSigner": false,
+            "isWritable": true,
+            "kind": "instructionAccountNode",
+            "name": "event"
+          }
+        ],
+        "arguments": [
+          {
+            "defaultValue": {
+              "kind": "numberValueNode",
+              "number": 2
+            },
+            "defaultValueStrategy": "omitted",
+            "kind": "instructionArgumentNode",
+            "name": "discriminator",
+            "type": {
+              "endian": "le",
+              "format": "u8",
+              "kind": "numberTypeNode"
+            }
+          }
+        ],
+        "discriminators": [
+          {
+            "kind": "fieldDiscriminatorNode",
+            "name": "discriminator",
+            "offset": 0
+          }
+        ],
+        "docs": [
+          "Closes ticket sales for an event."
+        ],
+        "kind": "instructionNode",
+        "name": "eventClose"
+      }
+    ],
+    "kind": "programNode",
+    "name": "ticketing",
+    "pdas": [
+      {
+        "kind": "pdaNode",
+        "name": "event",
+        "seeds": [
+          {
+            "kind": "constantPdaSeedNode",
+            "type": {
+              "encoding": "utf8",
+              "kind": "stringTypeNode"
+            },
+            "value": {
+              "kind": "stringValueNode",
+              "string": "event"
+            }
+          },
+          {
+            "kind": "variablePdaSeedNode",
+            "name": "organizer",
+            "type": {
+              "kind": "publicKeyTypeNode"
+            }
+          }
+        ]
+      },
+      {
+        "kind": "pdaNode",
+        "name": "ticket",
+        "seeds": [
+          {
+            "kind": "constantPdaSeedNode",
+            "type": {
+              "encoding": "utf8",
+              "kind": "stringTypeNode"
+            },
+            "value": {
+              "kind": "stringValueNode",
+              "string": "ticket"
+            }
+          },
+          {
+            "kind": "variablePdaSeedNode",
+            "name": "event",
+            "type": {
+              "kind": "publicKeyTypeNode"
+            }
+          },
+          {
+            "kind": "variablePdaSeedNode",
+            "name": "buyer",
+            "type": {
+              "kind": "publicKeyTypeNode"
+            }
+          }
+        ]
+      }
+    ],
+    "publicKey": "4Pcmdyzcuz7fULbRXwx1p4hmdddjypFKkVBZX4tvuvRN",
+    "version": "0.1.0"
+  },
+  "standard": "codama",
+  "version": "1.0.0"
+}

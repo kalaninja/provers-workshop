@@ -1,0 +1,52 @@
+[package]
+name = "ticketing-client"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# `num-traits` has no direct `use`: it is referenced only by the code that
+# num-derive's `FromPrimitive` derive expands to, which cargo-machete cannot
+# see.
+[package.metadata.cargo-machete]
+ignored = ["num-traits"]
+
+[lints]
+workspace = true
+
+[dependencies]
+borsh = { workspace = true }
+num-derive = { workspace = true }
+num-traits = { workspace = true }
+solana-account-info = { workspace = true }
+solana-address = { workspace = true, features = ["borsh", "copy", "curve25519", "decode"] }
+solana-cpi = { workspace = true }
+solana-instruction = { workspace = true }
+solana-program-error = { workspace = true }
+
+# Optional off-chain RPC deps for the `fetch` feature; not compiled by default.
+solana-account = { workspace = true, optional = true }
+solana-rpc-client = { workspace = true, optional = true }
+
+[dev-dependencies]
+mollusk-svm = { workspace = true }
+solana-account = { workspace = true }
+solana-address = { workspace = true }
+solana-instruction = { workspace = true }
+
+ticketing-interface = { workspace = true, features = ["test-utils"] }
+
+[features]
+# Off-chain fetch helpers (`fetch_*`) live behind this feature; enabling it
+# pulls the blocking RPC client. Default builds stay lean and never compile it.
+fetch = ["dep:solana-account", "dep:solana-rpc-client"]
+# Opt-in gate for the SBF/Mollusk integration tests in `tests/svm_lifecycle.rs`,
+# which need the program `.so` on SBF_OUT_DIR (run via
+# `just solana test-client-rust`). Enables no deps; like the program's
+# `bpf-entrypoint`, it just keeps that test target out of the default
+# `cargo test` / `just rust test` lane (see the `[[test]]` entry below).
+svm-tests = []
+
+[[test]]
+name = "svm_lifecycle"
+required-features = ["svm-tests"]

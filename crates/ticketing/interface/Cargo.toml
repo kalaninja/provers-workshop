@@ -1,0 +1,59 @@
+[package]
+name = "ticketing-interface"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[package.metadata.solana]
+# Example program ID whose keypair was discarded — replace with a real program
+# pubkey before any deploy.
+program-id = "4Pcmdyzcuz7fULbRXwx1p4hmdddjypFKkVBZX4tvuvRN"
+
+[[bin]]
+name = "idl-gen"
+path = "src/bin/idl_gen.rs"
+required-features = ["idl-gen"]
+
+[lints]
+workspace = true
+
+[dependencies]
+bytemuck = { workspace = true }
+# Host-only IDL-generator deps, pulled in only by the `idl-gen` feature (the
+# `idl-gen` bin); never compiled by ordinary host/SBF builds. The
+# `#[derive(Codama*)]` markers come from ticketing-macros' no-op stand-ins,
+# not `codama-macros`, so the whole codama crate graph stays out of normal
+# builds.
+codama = { workspace = true, optional = true }
+# Mollusk fixtures for the `test-utils` feature; host-only.
+mollusk-svm = { workspace = true, optional = true }
+pinocchio = { workspace = true }
+pinocchio-system = { workspace = true }
+serde_json = { workspace = true, optional = true }
+solana-account = { workspace = true, optional = true }
+solana-address = { workspace = true, features = ["bytemuck", "copy", "curve25519", "decode"] }
+solana-package-metadata = { workspace = true }
+solana-program-error = { workspace = true, optional = true }
+solana-pubkey = { workspace = true, optional = true }
+solana-sdk-ids = { workspace = true, optional = true }
+syn = { workspace = true, optional = true }
+
+ticketing-macros = { workspace = true }
+
+# IDL generation lives in a feature-gated bin (`src/bin/idl_gen.rs`, run via
+# `just solana gen-idl`) rather than a build script, so codama/syn/serde_json
+# stay out of the default build graph — ordinary `cargo check/clippy/test`
+# never compile them.
+[features]
+idl-gen = ["dep:codama", "dep:serde_json", "dep:syn"]
+# Mollusk integration-test fixtures exposed by the `test_utils` module. Gated
+# so the heavy, host-only deps stay out of normal and SBF builds; enable it
+# from a consumer's `[dev-dependencies]`.
+test-utils = [
+    "dep:mollusk-svm",
+    "dep:solana-account",
+    "dep:solana-program-error",
+    "dep:solana-pubkey",
+    "dep:solana-sdk-ids",
+]

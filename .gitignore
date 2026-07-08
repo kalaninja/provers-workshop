@@ -1,0 +1,27 @@
+# Rust build output
+/target/
+
+# Creusot: track proof sessions (verif/**/proof.json) for `just creusot replay`; ignore the
+# generated Coma (regenerated from source) and the prover result cache.
+/verif/**/*.coma
+/.why3find/
+
+# Local tool caches (populated by run-tooling.sh volume mounts)
+/.cache/
+
+# Codama codegen harness dependencies
+/clients/node_modules/
+
+# Editor metadata
+/.idea/
+/.vscode/
+/.zed/
+
+# OS-level noise
+.DS_Store
+
+# Local logs
+*.log
+
+# Separate git repo for articles (versioned independently)
+/articles/
