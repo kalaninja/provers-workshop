@@ -4,7 +4,7 @@
 //! destructured domain fields (never raw accounts or `*Args` structs), makes
 //! the instruction's decision, and returns the state for the trusted shell to
 //! persist. Their contracts — written in the domain predicates — are discharged
-//! by the `#[kani::proof]` harnesses in `crate::proofs`.
+//! by the `#[kani::proof_for_contract]` harnesses in `crate::proofs`.
 
 pub(crate) mod event_close;
 pub(crate) mod event_create;

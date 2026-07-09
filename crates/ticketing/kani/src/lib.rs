@@ -8,8 +8,8 @@
 //!   creation, clock reads, CPIs, and persistence. Everything that touches the
 //!   Solana runtime. Kani never enters them (no harness reaches them).
 //! - `flows` — the decision cores: pure functions over wire-level state values.
-//!   Their contracts are discharged by the `#[kani::proof]` harnesses in
-//!   [`mod@proofs`], run by `just kani verify`.
+//!   Their contracts are discharged by the `#[kani::proof_for_contract]`
+//!   harnesses in [`mod@proofs`], run by `just kani verify`.
 //! - `domain` — predicates, invariants, and typed mutators on the wire state
 //!   types. Under Kani the foreign-type shims (`NonZeroU64`, `Address`) are
 //!   concrete code the model checker verifies, not trusted axioms.

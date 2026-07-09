@@ -26,6 +26,12 @@ ticketing-interface = { workspace = true }
 # harnesses) is available under verification without a Cargo dependency.
 # Ordinary host and SBF builds compile the same code with `#[cfg(kani)]` off.
 
+# The one verification-only extra: `proofs::any_status` draws status
+# discriminants through the `Contiguous` impl derived in `ticketing-interface`,
+# and that trait lives in `bytemuck`. Ordinary host and SBF builds never see it.
+[target.'cfg(kani)'.dependencies]
+bytemuck = { workspace = true }
+
 [features]
 default = []
 # Gates the `entrypoint!` registration so the crate can be linked as a plain

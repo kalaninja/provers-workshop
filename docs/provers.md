@@ -86,8 +86,8 @@ Columns fill in as lanes land.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Trusted surface | `instructions/` shells; `ax_*` axioms + opaque `int`/`is_set` for `NonZeroU64`/`Address` | `instructions/` shells only - foreign-type ops are plain std (`checked_mul`, `==`, ...) + a concrete `is_set`, all verified, no axioms | - | - | - | - | - | - |
 | Contract legibility | `requires`/`ensures` attributes + pearlite (`@`, `*x`/`^x`, `Int`) | function contracts on the fns (`#[cfg_attr(kani, kani::requires/ensures)]`, `-Z function-contracts`) checked by `#[kani::proof_for_contract]`; `old(*e)`/`*e` for pre/post - close to Creusot's clauses | - | - | - | - | - | - |
-| Completeness | full deductive proof | bounded model check; loop-free (no unwinding bounds) but `capacity` bounded to `u8` to keep the nonlinear `capacity*price` tractable | - | - | - | - | - | - |
-| Proof / replay speed | tbd (time `just creusot verify` / `replay`) | ~190s from scratch (`purchase` 144s, others 17-29s); no replay | - | - | - | - | - | - |
+| Completeness | full deductive proof | bounded model check; loop-free (no unwinding bounds) but `capacity` bounded to `u8` to keep the nonlinear `capacity*price` tractable; `kani::cover!` guards the bounded domain against vacuous passes | - | - | - | - | - | - |
+| Proof / replay speed | tbd (time `just creusot verify` / `replay`) | ~290s from scratch (`purchase` 211s, others 32-48s); no replay | - | - | - | - | - | - |
 | Artifact story | 23 `proof.json` sessions under `verif/`, deterministic replay in pre-push | none committed - re-verifies from scratch every run | - | - | - | - | - | - |
 | Code bending | none in core bodies; extension-trait plumbing for foreign impls | cores call std directly (no axiom shims); predicates are `#[cfg(kani)]` bool fns on hand-written `*Ops` traits; PODs built field-by-field | - | - | - | - | - | - |
 | Toolchain fit | own nightly (2026-04-21) + opam-built Why3/solvers; the heaviest image | self-contained bundle (kani-verifier 0.67.0 + CBMC/kissat) via `cargo kani setup`; light image | - | - | - | - | - | - |
@@ -134,10 +134,13 @@ domain predicates as ordinary `#[cfg(kani)]` boolean methods on hand-written
 `*Ops` extension traits, and function contracts on each flow core
 (`#[cfg_attr(kani, kani::requires/ensures)]` + `#[kani::modifies]`, mirroring the
 Creusot clauses) checked by `#[kani::proof_for_contract]` harnesses under
-`-Z function-contracts`. Built via a `kani-tooling` Docker stage
-(`cargo install kani-verifier` 0.67.0 + `cargo kani setup`); `just kani verify`
-passes all three (0 failures). No replay - Kani re-verifies from scratch (~190s
-total, `purchase` ~144s).
+`-Z function-contracts` (kept on the CLI: cargo-kani can default flags only
+from the workspace-root manifest, not per crate); each harness ends in
+`kani::cover!` reachability checks on the interesting outcomes. Built via a
+`kani-tooling` Docker stage (`cargo install kani-verifier` 0.67.0 +
+`cargo kani setup`); `just kani verify` passes all three (0 failures, all
+covers satisfied). No replay - Kani re-verifies from scratch (~290s total,
+`purchase` ~211s).
 
 Why second: a genuinely different paradigm at the lowest integration cost. The
 gating maps one-to-one onto the existing scheme (Kani even sets `--cfg kani`
@@ -158,13 +161,26 @@ Findings:
   bit-blasts nonlinear 64-bit arithmetic poorly - `close_event`, with only the
   invariant's single product, ran ~5 min at full width. Bounding `capacity` to
   `u8` (price stays full 64-bit, so the `u64` overflow boundary is still reached)
-  plus the `kissat` backend brings the whole run to ~85s. The loop-free "bounded
+  plus the `kissat` backend brought the plain assume/assert run to ~85s (the
+  shipped contract harnesses cost more - see below). The loop-free "bounded
   caveat evaporates" claim holds for unwinding but not for integer width:
   Creusot's SMT discharges the same nonlinear bound unbounded. Sharpest contrast
   in the comparison so far.
+- **A bounded domain needs vacuity guards.** With `capacity` clamped and every
+  `requires` assumed, an over-constrained input space would let the `ensures`
+  pass vacuously. Each harness therefore ends with `kani::cover!` checks that
+  the interesting outcomes stay reachable - both result arms everywhere, plus
+  the sale clamp in `purchase`; an unsatisfiable cover fails the run. Covers
+  are extra SAT queries against the same formula: they lifted `purchase` from
+  144s to ~211s and the whole run from ~190s to ~290s.
 - **No `kani::Arbitrary` for the foreign PODs.** The orphan rule blocks
   `impl kani::Arbitrary for Event`, so the harnesses build `Event`/`Ticket`
-  field-by-field from primitive `kani::any()` values.
+  field-by-field. The leaves still come from Kani's library: built-in
+  `Arbitrary` impls for `NonZeroU8`/`NonZeroU64` (capacity draws through the
+  typed `NonZeroU8` domain), and enum discriminants from the full `Contiguous`
+  range (`kani::any_where` + `from_integer`), which picks up future status
+  variants automatically; `bytemuck` rides along under
+  `[target.'cfg(kani)'.dependencies]` for that trait.
 - **Function contracts read like Creusot's, at a cost.** The clauses sit on the
   functions as `#[cfg_attr(kani, kani::requires/ensures)]` + `#[kani::modifies]`,
   checked by `#[kani::proof_for_contract]` - the closest apples-to-apples with
@@ -173,7 +189,7 @@ Findings:
   owned locals (`let post = *event; let pre = old(*event);`) because Kani's
   post-state rewrite doesn't see through `event.method()`. The `modifies` frame
   reasoning also makes verification ~2.5x slower than a plain assume/assert
-  harness (`purchase` 144s vs 54s).
+  harness (`purchase` 144s vs 54s, measured before the cover checks).
 - **Frame conditions use plain `==`.** `Event`/`Ticket` gain a `PartialEq`/`Eq`
   derive in the shared `ticketing-interface` so the frame reads
   `post == Event { .. }` like Creusot's pearlite `==` (Rust has no logical
@@ -295,6 +311,12 @@ annotation-based.
 
 ## Status log
 
+- **2026-07-09** - Kani harness hygiene pass: `kani::cover!` reachability
+  checks in every harness (both result arms plus the `purchase` sale clamp;
+  all satisfied), and arbitrary builders moved onto Kani's built-in `Arbitrary`
+  (`NonZeroU8`/`NonZeroU64`) and a `Contiguous`-drawn status (`bytemuck` added
+  under `[target.'cfg(kani)'.dependencies]`). Verify now ~290s (`purchase`
+  211s).
 - **2026-07-08** - Kani lane wired up: `ticketing-kani` - same program as the
   Creusot lane, written the Kani way (std directly, no axiom shims) - with a
   `cfg(kani)` spec layer and three function contracts checked by

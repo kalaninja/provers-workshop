@@ -5152,6 +5152,7 @@ dependencies = [
 name = "ticketing-kani"
 version = "0.1.0"
 dependencies = [
+ "bytemuck",
  "pinocchio",
  "pinocchio-log",
  "pinocchio-system",
