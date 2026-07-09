@@ -5151,6 +5151,12 @@ dependencies = [
 [[package]]
 name = "ticketing-kani"
 version = "0.1.0"
+dependencies = [
+ "pinocchio",
+ "pinocchio-log",
+ "pinocchio-system",
+ "ticketing-interface",
+]
 
 [[package]]
 name = "ticketing-macros"

@@ -37,7 +37,7 @@ identical contracts.
 | # | Prover | Approach | Status |
 | --- | --- | --- | --- |
 | 1 | [Creusot](https://github.com/creusot-rs/creusot) | deductive, translated to Why3 + SMT (alt-ergo / z3 / cvc5) | wired up |
-| 2 | [Kani](https://github.com/model-checking/kani) | bounded model checking (CBMC) | queued (next) |
+| 2 | [Kani](https://github.com/model-checking/kani) | bounded model checking (CBMC) | wired up |
 | 3 | [Verus](https://github.com/verus-lang/verus) | SMT over a verification dialect of Rust | queued |
 | 4 | [Flux](https://github.com/flux-rs/flux) | refinement (liquid) types | queued |
 | 5 | [Aeneas](https://github.com/AeneasVerif/aeneas) | functional translation to Lean | queued |
@@ -45,7 +45,7 @@ identical contracts.
 | 7 | [VeriFast](https://github.com/verifast/verifast) | separation logic | on hold |
 | 8 | [Prusti](https://github.com/viperproject/prusti-dev) | deductive, Viper backend | on hold |
 
-Creusot is the only prover crate wired up today. The ordering rationale, integration
+Creusot and Kani are wired up today. The ordering rationale, integration
 ground rules, per-prover notes, and the running comparison live in
 [docs/provers.md](docs/provers.md). What we compare per prover: what has to be
 marked trusted, how the contracts read, proof and replay speed, and how far
@@ -94,6 +94,8 @@ just solana test-client-rust # generated-client wire parity + SBF lifecycle test
 just creusot verify          # prove all verification conditions (Why3 + SMT)
 just creusot replay          # deterministically replay committed proofs (pre-push)
 just creusot verify-ide      # open the Why3 IDE on any unproved goal
+
+just kani verify             # bounded model-check the cores (CBMC); re-proves from scratch
 
 just init-hooks              # wire the repo-tracked pre-push hook into this clone
 ```

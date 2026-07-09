@@ -56,7 +56,7 @@ pub enum EventStatus {
 /// `AccountHeader::VERSION` bumps, so the slot also acts as a forward-
 /// compat reserve when a future schema version uses it for real fields.
 #[repr(C)]
-#[derive(Clone, Copy, NoUninit, CheckedBitPattern, CodamaAccount, StateAccount)]
+#[derive(Clone, Copy, NoUninit, CheckedBitPattern, CodamaAccount, StateAccount, PartialEq, Eq)]
 #[codama(discriminator(bytes = [84, 75, 84, 69, 86, 78, 84, 1], offset = 0))]
 pub struct Event {
     /// Versioned account header: discriminator + schema version.

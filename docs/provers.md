@@ -14,7 +14,7 @@ starting its lane.
 | # | Prover | Paradigm | Status |
 | --- | --- | --- | --- |
 | 1 | [Creusot](https://github.com/creusot-rs/creusot) | deductive, translated to Why3 + SMT | wired up (the baseline) |
-| 2 | [Kani](https://github.com/model-checking/kani) | bounded model checking (CBMC) | lane scaffolded |
+| 2 | [Kani](https://github.com/model-checking/kani) | bounded model checking (CBMC) | wired up |
 | 3 | [Verus](https://github.com/verus-lang/verus) | SMT over a verification dialect of Rust | planned |
 | 4 | [Flux](https://github.com/flux-rs/flux) | refinement (liquid) types | planned |
 | 5 | [Aeneas](https://github.com/AeneasVerif/aeneas) | functional translation to Lean, interactive proofs | planned |
@@ -36,12 +36,15 @@ cannot build the workspace anymore.
 Distilled from the Creusot lane; this is the template a new prover copies.
 
 - Each prover gets its own program crate `crates/ticketing/<prover>` over the
-  shared `ticketing-interface`. Its `src/flows/` and `src/domain/` core bodies
-  stay identical to the other prover crates' - only the spec annotations
-  differ. Those spec attributes stay cfg-gated (`#[cfg_attr(<prover>, ...)]`
-  attributes and `#[cfg(<prover>)]` items, mirroring `cfg(creusot)`) so the
-  crate's normal and SBF builds compile the same code with zero verification
-  overhead.
+  shared `ticketing-interface`. The program's *behavior* stays identical across
+  prover crates - same instructions and decisions over the same wire state - but
+  the code may be written the way that prover is best used, not forced into a
+  shared source (Creusot routes foreign-type ops through `#[trusted]` axiom
+  shims; Kani calls std directly, since it models those types precisely - the
+  "Code bending" axis tracks exactly this). Spec and proof material stays
+  cfg-gated (`#[cfg(<prover>)]` items / `#[cfg_attr(<prover>, ...)]` attributes,
+  mirroring `cfg(creusot)`) so the crate's normal and SBF builds compile with
+  zero verification overhead.
 - The new cfg is registered in the root `Cargo.toml` `unexpected_cfgs`
   check-cfg list, next to `cfg(creusot)`.
 - Prover-only dependencies go under `[target.'cfg(<prover>)'.dependencies]` in
@@ -81,14 +84,14 @@ Columns fill in as lanes land.
 
 | Axis | Creusot | Kani | Verus | Flux | Aeneas | hax | VeriFast | Prusti |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Trusted surface | `instructions/` shells; `ax_*` axioms + opaque `int`/`is_set` for `NonZeroU64`/`Address` | - | - | - | - | - | - | - |
-| Contract legibility | `requires`/`ensures` attributes + pearlite (`@`, `*x`/`^x`, `Int`) | - | - | - | - | - | - | - |
-| Completeness | full deductive proof | - | - | - | - | - | - | - |
-| Proof / replay speed | tbd (time `just creusot verify` / `replay`) | - | - | - | - | - | - | - |
-| Artifact story | 23 `proof.json` sessions under `verif/`, deterministic replay in pre-push | - | - | - | - | - | - | - |
-| Code bending | none in core bodies; extension-trait plumbing for foreign impls | - | - | - | - | - | - | - |
-| Toolchain fit | own nightly (2026-04-21) + opam-built Why3/solvers; the heaviest image | - | - | - | - | - | - | - |
-| Maintenance | active, research-led (v0.12.0 pinned) | - | - | - | - | - | - | - |
+| Trusted surface | `instructions/` shells; `ax_*` axioms + opaque `int`/`is_set` for `NonZeroU64`/`Address` | `instructions/` shells only - foreign-type ops are plain std (`checked_mul`, `==`, ...) + a concrete `is_set`, all verified, no axioms | - | - | - | - | - | - |
+| Contract legibility | `requires`/`ensures` attributes + pearlite (`@`, `*x`/`^x`, `Int`) | function contracts on the fns (`#[cfg_attr(kani, kani::requires/ensures)]`, `-Z function-contracts`) checked by `#[kani::proof_for_contract]`; `old(*e)`/`*e` for pre/post - close to Creusot's clauses | - | - | - | - | - | - |
+| Completeness | full deductive proof | bounded model check; loop-free (no unwinding bounds) but `capacity` bounded to `u8` to keep the nonlinear `capacity*price` tractable | - | - | - | - | - | - |
+| Proof / replay speed | tbd (time `just creusot verify` / `replay`) | ~190s from scratch (`purchase` 144s, others 17-29s); no replay | - | - | - | - | - | - |
+| Artifact story | 23 `proof.json` sessions under `verif/`, deterministic replay in pre-push | none committed - re-verifies from scratch every run | - | - | - | - | - | - |
+| Code bending | none in core bodies; extension-trait plumbing for foreign impls | cores call std directly (no axiom shims); predicates are `#[cfg(kani)]` bool fns on hand-written `*Ops` traits; PODs built field-by-field | - | - | - | - | - | - |
+| Toolchain fit | own nightly (2026-04-21) + opam-built Why3/solvers; the heaviest image | self-contained bundle (kani-verifier 0.67.0 + CBMC/kissat) via `cargo kani setup`; light image | - | - | - | - | - | - |
+| Maintenance | active, research-led (v0.12.0 pinned) | active (AWS); drives the std verification campaign | - | - | - | - | - | - |
 
 ## Prover notes
 
@@ -118,52 +121,65 @@ Lessons that set the baseline for comparison:
 - Proof sessions replay deterministically: reviewable artifacts, no solver
   roulette in CI.
 
-### 2. Kani - lane scaffolded
+### 2. Kani - wired up
 
 [Kani](https://github.com/model-checking/kani) (AWS) compiles MIR to goto-C
 and bit-blasts it through CBMC. It is the workhorse of the
 [Rust standard library verification campaign](https://github.com/model-checking/verify-rust-std).
 
-**Status:** the tooling lane is in place - `mise.kani.toml`, a `kani-tooling`
-Docker stage (`cargo install kani-verifier` + `cargo kani setup`, pinned
-0.67.0), `just kani verify`, and a `ticketing-kani` crate carrying one smoke
-`#[kani::proof]`. Still to come: porting the `flows/`/`domain/`/`instructions/`
-cores, the `cfg(kani)` spec layer, and the contracts (see the integration
-sketch below).
+What is wired: a full `ticketing-kani` program crate over the shared
+`ticketing-interface` - same behavior as `ticketing-creusot`, written the Kani
+way (std called directly, no axiom shims) - with a `cfg(kani)` spec layer:
+domain predicates as ordinary `#[cfg(kani)]` boolean methods on hand-written
+`*Ops` extension traits, and function contracts on each flow core
+(`#[cfg_attr(kani, kani::requires/ensures)]` + `#[kani::modifies]`, mirroring the
+Creusot clauses) checked by `#[kani::proof_for_contract]` harnesses under
+`-Z function-contracts`. Built via a `kani-tooling` Docker stage
+(`cargo install kani-verifier` 0.67.0 + `cargo kani setup`); `just kani verify`
+passes all three (0 failures). No replay - Kani re-verifies from scratch (~190s
+total, `purchase` ~144s).
 
 Why second: a genuinely different paradigm at the lowest integration cost. The
 gating maps one-to-one onto the existing scheme (Kani even sets `--cfg kani`
-itself), and the cores are loop-free and monomorphic, so the usual "bounded"
-caveat evaporates - no unwinding bounds, every path explored bit-precisely.
+itself), and the cores are loop-free and monomorphic, so there are no
+loop-unwinding bounds. The catch turned out to be arithmetic, not loops (below).
 
-Integration sketch:
+Findings:
 
-- Its own `ticketing-kani` crate (`crates/ticketing/kani`) beside
-  `ticketing-creusot`, with a `cfg(kani)` spec layer; register the cfg in
-  check-cfg.
-- `kani::Arbitrary` for `Event`/`Ticket` (plain `#[repr(C)]` PODs, derivable
-  or hand-written) plus `kani::assume(event.invariant())` on entry, with the
-  domain predicates re-expressed as ordinary `#[cfg(kani)]` boolean functions.
-- Contracts first as `#[kani::requires]` / `#[kani::ensures]` +
-  `#[kani::proof_for_contract]` (experimental `-Z function-contracts`, heavily
-  exercised by the std campaign) for an apples-to-apples read against
-  Creusot's clauses; fall back to stable `#[kani::proof]` harnesses with
-  explicit assume/assert if the feature wobbles.
-- Lane: `mise.kani.toml`, a light `kani-tooling` image
-  (`cargo install kani-verifier` at a pinned version + `cargo kani setup`),
-  `just kani verify`.
-- No replay analog: Kani re-verifies from scratch each run - itself a data
-  point on the artifact-story axis.
-
-Expected findings and risks:
-
-- Creusot's `ax_*` axioms stop being axioms: `NonZeroU64::checked_mul` is just
-  code Kani verifies. Smaller trusted surface - record it when it lands.
-- `Address::is_set` is deliberately opaque under Creusot; Kani needs a concrete
-  `#[cfg(kani)]` definition instead.
-- Bit-blasting the two 64x64 multiplications (`capacity * price`,
-  `quantity * price`) can be slow in SAT; mitigations: solver switch
-  (`--solver kissat` / cadical) or splitting the contract.
+- **Smaller trusted surface than Creusot.** Creusot's `ax_*` shims and the
+  opaque `int`/`is_set` are *axioms*. The Kani lane drops that shim layer
+  entirely - it calls std directly (`NonZeroU64::checked_mul`, `min`, `==`) and
+  defines `is_set` concretely (`self != Address::default()`), so the model
+  checker verifies all of it. Only the `instructions/` shells stay outside the
+  proof, and no harness reaches them.
+- **Nonlinear arithmetic is the real cost, not loops.** `purchase` must prove
+  `quantity * price <= capacity * price <= u64::MAX` (multiplication
+  monotonicity) so its post-mutation error path is unreachable, and CBMC
+  bit-blasts nonlinear 64-bit arithmetic poorly - `close_event`, with only the
+  invariant's single product, ran ~5 min at full width. Bounding `capacity` to
+  `u8` (price stays full 64-bit, so the `u64` overflow boundary is still reached)
+  plus the `kissat` backend brings the whole run to ~85s. The loop-free "bounded
+  caveat evaporates" claim holds for unwinding but not for integer width:
+  Creusot's SMT discharges the same nonlinear bound unbounded. Sharpest contrast
+  in the comparison so far.
+- **No `kani::Arbitrary` for the foreign PODs.** The orphan rule blocks
+  `impl kani::Arbitrary for Event`, so the harnesses build `Event`/`Ticket`
+  field-by-field from primitive `kani::any()` values.
+- **Function contracts read like Creusot's, at a cost.** The clauses sit on the
+  functions as `#[cfg_attr(kani, kani::requires/ensures)]` + `#[kani::modifies]`,
+  checked by `#[kani::proof_for_contract]` - the closest apples-to-apples with
+  Creusot's `requires`/`ensures`. Two frictions: `-Z function-contracts` is
+  unstable, and on a `&mut` argument the postcondition must dereference into
+  owned locals (`let post = *event; let pre = old(*event);`) because Kani's
+  post-state rewrite doesn't see through `event.method()`. The `modifies` frame
+  reasoning also makes verification ~2.5x slower than a plain assume/assert
+  harness (`purchase` 144s vs 54s).
+- **Frame conditions use plain `==`.** `Event`/`Ticket` gain a `PartialEq`/`Eq`
+  derive in the shared `ticketing-interface` so the frame reads
+  `post == Event { .. }` like Creusot's pearlite `==` (Rust has no logical
+  equality, so `==` here is `PartialEq::eq`). `just creusot replay` confirms the
+  derive is inert for the Creusot lane — its pearlite `==` is structural,
+  independent of any `PartialEq` impl.
 
 ### 3. Verus - planned
 
@@ -279,6 +295,13 @@ annotation-based.
 
 ## Status log
 
+- **2026-07-08** - Kani lane wired up: `ticketing-kani` - same program as the
+  Creusot lane, written the Kani way (std directly, no axiom shims) - with a
+  `cfg(kani)` spec layer and three function contracts checked by
+  `#[kani::proof_for_contract]` (`-Z function-contracts`); `just kani verify`
+  passes (0 failures, ~190s). Finding: full 64-bit nonlinear `capacity*price` is
+  intractable for CBMC, so `capacity` is bounded to `u8` (price full-width;
+  overflow still reached).
 - **2026-07-08** - Kani lane scaffolded: `mise.kani.toml`, `kani-tooling` Docker
   stage, `just kani` (`version`/`verify`), `run-tooling.sh` KANI_HOME plumbing, a
   narrow pre-push glob, `cfg(kani)` registered in check-cfg, and a `ticketing-kani`

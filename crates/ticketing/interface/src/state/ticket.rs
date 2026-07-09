@@ -41,7 +41,7 @@ use crate::{
 /// fields) rounds the size up to 112. Schema evolution happens through
 /// `AccountHeader::VERSION` bumps.
 #[repr(C)]
-#[derive(Clone, Copy, NoUninit, CheckedBitPattern, CodamaAccount, StateAccount)]
+#[derive(Clone, Copy, NoUninit, CheckedBitPattern, CodamaAccount, StateAccount, PartialEq, Eq)]
 #[codama(discriminator(bytes = [84, 75, 84, 84, 67, 75, 84, 1], offset = 0))]
 pub struct Ticket {
     /// Versioned account header: discriminator + schema version.
