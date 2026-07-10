@@ -1,9 +1,11 @@
 //! Trusted imperative shells: the dispatcher and one handler per instruction.
 //!
 //! Everything in this module runs against the Solana runtime — account
-//! parsing, PDA creation, clock reads, CPIs, persistence — and is excluded
-//! from verification (no Kani harness reaches it). Each handler keeps its
-//! decision logic in a `flows` core.
+//! parsing, PDA creation, clock reads, CPIs, persistence. The byte-level
+//! front (discriminator match, args parsing, account-count rejection) is
+//! checked panic-free by the dispatcher harness in `crate::proofs`; the
+//! handler bodies past account parsing stay outside verification. Each
+//! handler keeps its decision logic in a `flows` core.
 
 use pinocchio::{AccountView, Address, ProgramResult, error::ProgramError};
 use ticketing_interface::{

@@ -1,4 +1,5 @@
-//! Kani proof harnesses: one `#[kani::proof_for_contract]` per decision core.
+//! Kani proof harnesses: one `#[kani::proof_for_contract]` per decision core,
+//! plus a plain `#[kani::proof]` over the dispatcher's byte-level front.
 //!
 //! The contracts live on the functions in `crate::flows` as
 //! `#[cfg_attr(kani, kani::requires/ensures)]` (mirroring the Creusot clauses);
@@ -25,13 +26,17 @@
 use core::num::{NonZeroU8, NonZeroU64};
 
 use bytemuck::Contiguous;
-use pinocchio::Address;
+use pinocchio::{Address, error::ProgramError};
 use ticketing_interface::{
-    Event, EventName, EventStatus,
+    Event, EventCreateArgs, EventName, EventStatus,
+    program::instruction::InstructionArgs,
     wire::{AccountHeader, Reserved},
 };
 
-use crate::flows::{event_close::close_event, event_create::create_event, ticket_buy::purchase};
+use crate::{
+    flows::{event_close::close_event, event_create::create_event, ticket_buy::purchase},
+    process_instruction,
+};
 
 // ---- arbitrary builders
 // ------------------------------------------------------
@@ -138,4 +143,45 @@ fn close_event_contract() {
 
     kani::cover!(result.is_ok(), "closing sales can succeed");
     kani::cover!(result.is_err(), "closing sales can be rejected");
+}
+
+// ---- dispatcher harness
+// ------------------------------------------------------
+
+/// Byte-level panic freedom of the dispatcher front. For every instruction
+/// payload up to one byte past the largest wire layout, dispatched with an
+/// empty account list, `process_instruction` returns an error and never
+/// panics: each path is rejected by the discriminator match, an args parser,
+/// or the account-count check before anything touches the Solana runtime.
+/// The covers pin both rejection depths — a byte-level rejection (shallow)
+/// and a fully parsed instruction that reaches account parsing (deep).
+///
+/// Unlike the loop-free cores, the parsers iterate: `BoundedString`
+/// validation walks a slice whose bounds come from symbolic payload bytes, so
+/// CBMC cannot bound the loop structurally and needs an explicit unwind
+/// (one past the 88-byte `EventCreateArgs` layout, the longest byte loop).
+#[kani::proof]
+#[kani::unwind(89)]
+#[kani::solver(kissat)]
+fn dispatcher_rejects_arbitrary_bytes_without_accounts() {
+    // One discriminator byte + the largest args payload (`EventCreateArgs`)
+    // + one byte of slack so over-long payloads stay reachable. A prefix of
+    // symbolic length covers every payload: the bytes are fully symbolic, so
+    // a symbolic slice offset would add no coverage, only symex cost.
+    let bytes: [u8; 1 + EventCreateArgs::LEN + 1] = kani::any();
+    let len = kani::any_where(|len: &usize| *len <= bytes.len());
+    let data = &bytes[..len];
+    let mut accounts = [];
+
+    let result = process_instruction(&ticketing_interface::ID, &mut accounts, data);
+
+    assert!(result.is_err(), "no instruction can succeed without accounts");
+    kani::cover!(
+        result == Err(ProgramError::InvalidInstructionData),
+        "a byte-level rejection is reachable"
+    );
+    kani::cover!(
+        result == Err(ProgramError::NotEnoughAccountKeys),
+        "a fully parsed instruction reaches account parsing"
+    );
 }

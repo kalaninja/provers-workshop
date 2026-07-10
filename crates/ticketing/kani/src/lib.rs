@@ -6,7 +6,9 @@
 //!
 //! - [`mod@instructions`] — the trusted imperative shells: account parsing, PDA
 //!   creation, clock reads, CPIs, and persistence. Everything that touches the
-//!   Solana runtime. Kani never enters them (no harness reaches them).
+//!   Solana runtime. The dispatcher's byte-level front (discriminator match,
+//!   args parsing, account-count rejection) is checked panic-free by a harness;
+//!   the runtime-touching interiors stay outside verification.
 //! - `flows` — the decision cores: pure functions over wire-level state values.
 //!   Their contracts are discharged by the `#[kani::proof_for_contract]`
 //!   harnesses in [`mod@proofs`], run by `just kani verify`.
