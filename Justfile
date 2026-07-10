@@ -10,6 +10,9 @@ mod creusot 'just/creusot.just'
 # Bounded model checking commands (Kani)
 mod kani 'just/kani.just'
 
+# SMT-checked Rust dialect commands (Verus)
+mod verus 'just/verus.just'
+
 # Tooling commands
 mod tooling 'just/tooling.just'
 

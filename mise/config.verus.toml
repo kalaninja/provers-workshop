@@ -1,0 +1,6 @@
+# Wrapper toolchain for the Verus lane, selected with MISE_ENV=verus. Verus is a rustc driver
+# (like Creusot): rust_verify dynamically links the toolchain, so it needs rustc-dev + rust-src +
+# llvm-tools present, and the `verus` launcher resolves it through rustup. The release pins stable
+# 1.96.0 (version.json in the release zip); Verus bundles its own Z3, so no solver pin here.
+[tools]
+rust = { version = "1.96.0", profile = "minimal", components = "rustc-dev,rust-src,llvm-tools" }

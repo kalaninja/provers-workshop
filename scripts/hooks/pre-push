@@ -42,10 +42,12 @@ run() {
 rust_changed=false
 creusot_changed=false
 kani_changed=false
+verus_changed=false
 
-has '^(crates/|clients/|idl/|Cargo\.toml|Cargo\.lock|rustfmt\.toml|clippy\.toml|mise(\.[a-z]+)?\.toml|Dockerfile)' && rust_changed=true
-has '^(crates/ticketing/|mise\.creusot\.toml|just/creusot\.just|why3find\.json|verif/|Dockerfile)' && creusot_changed=true
-has '^(crates/ticketing/kani/|mise\.kani\.toml|just/kani\.just)' && kani_changed=true
+has '^(crates/|clients/|idl/|Cargo\.toml|Cargo\.lock|rustfmt\.toml|clippy\.toml|mise/config(\.[a-z]+)?\.toml|Dockerfile)' && rust_changed=true
+has '^(crates/ticketing/|mise/config\.creusot\.toml|just/creusot\.just|why3find\.json|verif/|Dockerfile)' && creusot_changed=true
+has '^(crates/ticketing/kani/|mise/config\.kani\.toml|just/kani\.just)' && kani_changed=true
+has '^(crates/ticketing/verus/|mise/config\.verus\.toml|just/verus\.just)' && verus_changed=true
 
 if $rust_changed; then
   run just rust fmt-check
@@ -61,6 +63,10 @@ fi
 
 if $kani_changed; then
   run just kani verify
+fi
+
+if $verus_changed; then
+  run just verus verify
 fi
 
 printf '\npre-push: all checks passed\n'

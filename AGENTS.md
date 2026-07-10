@@ -26,8 +26,8 @@
 
 ## Source Of Truth
 
-- `mise.toml`, `mise.nightly.toml`, `mise.solana.toml`, `mise.creusot.toml` define every
-  repository-managed tool; formatting uses `MISE_ENV=nightly`
+- `mise/config.toml` plus the `mise/config.<env>.toml` overlays (nightly, solana, creusot, kani,
+  verus) define every repository-managed tool; formatting uses `MISE_ENV=nightly`
 - `Dockerfile` defines the containerized tooling stages
 - `Justfile` and `just/*.just` are the primary command interface
 - `rustfmt.toml` and `clippy.toml` define Rust formatting and lint behavior

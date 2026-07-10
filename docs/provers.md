@@ -19,7 +19,7 @@ starting its lane.
 | --- | --- | --- | --- |
 | 1 | [Creusot](https://github.com/creusot-rs/creusot) | deductive, translated to Why3 + SMT | wired up (the baseline) - [report](creusot.md) |
 | 2 | [Kani](https://github.com/model-checking/kani) | bounded model checking (CBMC) | wired up - [report](kani.md) |
-| 3 | [Verus](https://github.com/verus-lang/verus) | SMT over a verification dialect of Rust | planned |
+| 3 | [Verus](https://github.com/verus-lang/verus) | SMT over a verification dialect of Rust | scaffolded - tooling wired, cores pending |
 | 4 | [Flux](https://github.com/flux-rs/flux) | refinement (liquid) types | planned |
 | 5 | [Aeneas](https://github.com/AeneasVerif/aeneas) | functional translation to Lean, interactive proofs | planned |
 | 6 | [hax](https://github.com/cryspen/hax) | translation to F* / Rocq / Lean | planned |
@@ -94,9 +94,9 @@ Columns fill in as lanes land.
 | Contract legibility | `requires`/`ensures` attributes + pearlite (`@`, `*x`/`^x`, `Int`) | function contracts on the fns (`#[cfg_attr(kani, kani::requires/ensures)]`, `-Z function-contracts`) checked by `#[kani::proof_for_contract]`; `old(*e)`/`*e` for pre/post - close to Creusot's clauses | - | - | - | - | - | - |
 | Completeness | full deductive proof | bounded model check; the cores are loop-free (no unwinding bounds) but `capacity` bounded to `u8` to keep the nonlinear `capacity*price` tractable; `kani::cover!` guards the bounded domain against vacuous passes; the dispatcher harness bounds its parser loops with `#[kani::unwind]` | - | - | - | - | - | - |
 | Proof / replay speed | tbd (time `just creusot verify` / `replay`) | ~310s wall-clock from scratch (`-j` parallel harnesses; bounded by the dispatcher's ~300s, `purchase` ~210s, others 32-54s); no replay | - | - | - | - | - | - |
-| Artifact story | 23 `proof.json` sessions under `verif/`, deterministic replay in pre-push | none committed - re-verifies from scratch every run | - | - | - | - | - | - |
+| Artifact story | 23 `proof.json` sessions under `verif/`, deterministic replay in pre-push | none committed - re-verifies from scratch every run | none committed - re-verifies from scratch (fast SMT queries) | - | - | - | - | - |
 | Code bending | none in core bodies; extension-trait plumbing for foreign impls | cores call std directly (no axiom shims); predicates are `#[cfg(kani)]` bool fns on hand-written `*Ops` traits; PODs built field-by-field | - | - | - | - | - | - |
-| Toolchain fit | own nightly (2026-04-21) + opam-built Why3/solvers; the heaviest image | self-contained bundle (kani-verifier 0.67.0 + CBMC/kissat) via `cargo kani setup`; light image | - | - | - | - | - | - |
+| Toolchain fit | own nightly (2026-04-21) + opam-built Why3/solvers; the heaviest image | self-contained bundle (kani-verifier 0.67.0 + CBMC/kissat) via `cargo kani setup`; light image | release bundle (verus `0.2026.07.05` + bundled Z3 4.12.5) over a pinned stable 1.96.0 rustup toolchain, download-and-extract; needs glibc >= 2.39 so its base is trixie not the shared bookworm; `vstd` pinned from crates.io | - | - | - | - | - |
 | Maintenance | active, research-led (v0.12.0 pinned) | active (AWS); drives the std verification campaign | - | - | - | - | - | - |
 
 ## Prover notes
@@ -125,7 +125,7 @@ boundary is implicit in the harness set.
 
 Full report: [kani.md](kani.md).
 
-### 3. Verus - planned
+### 3. Verus - scaffolded (tooling wired, cores pending)
 
 [Verus](https://github.com/verus-lang/verus) checks a verification dialect of
 Rust against Z3, with specs and proofs written in the language itself. The
@@ -135,15 +135,35 @@ Rust.
 
 Why third: the strongest deductive competitor to the baseline - and the
 integration friction is the experiment. Code must live inside the `verus!{}`
-macro, so either `vstd`/`builtin` enter the normal and SBF builds (the macro
-erases ghost code under plain rustc) or the cores get re-stated in a parallel
-module, straining the byte-identical premise. How far the cores (or the shells
-around them) must bend is exactly what this lane measures.
+macro (or the `verus_spec`/`verus_verify` attribute forms), so either the Verus
+surface enters the normal and SBF builds or the cores get re-stated in a
+parallel module, straining the byte-identical premise. How far the cores (or
+the shells around them) must bend is exactly what this lane measures.
 
-Notes for when its turn comes: `NonZeroU64`/`Address` go through
+The tooling lane is wired (`mise/config.verus.toml`, a `verus-tooling` Docker stage,
+`just verus verify`, a pre-push glob, and a `ticketing-verus` skeleton whose one
+smoke proof verifies); the cores/contracts port comes next. Three integration
+findings already diverge from the Creusot/Kani template:
+
+- **Not self-contained.** Verus is a rustc driver whose release bundle pins a
+  stable rustc (1.96.0) but does *not* ship it: the stage installs that
+  toolchain with `rustc-dev`/`rust-src`/`llvm-tools` (like Creusot) and layers
+  the bundle (verus + cargo-verus + bundled Z3 4.12.5) on top.
+- **Newer glibc than the shared base.** The release binaries need glibc >= 2.39,
+  and the workshop's `debian:bookworm-slim` base ships 2.36. Only this stage's
+  base is overridden (to `debian:trixie-slim`, glibc 2.41) via a
+  `TOOLING_BASE_IMAGE` build-arg; every other lane stays on bookworm.
+- **Gates by Cargo feature, not cfg.** `cargo-verus` drives via
+  `RUSTC_WRAPPER=verus-driver` and exposes no cargo-visible `--cfg verus` (unlike
+  `cargo kani`/`cargo creusot`), so the `[target.'cfg(<prover>)'.dependencies]`
+  trick cannot work; the lane gates the whole Verus surface behind a `verus`
+  Cargo feature instead (no `cfg(verus)` in `unexpected_cfgs`). `vstd` is not
+  auto-injected either - it rides in as an optional, feature-gated crates.io
+  dependency pinned to the bundled version.
+
+Notes for the cores step: `NonZeroU64`/`Address` go through
 `assume_specification` / external type specs, so the axiom analog remains;
-releases pin their own rustc; proofs are fast SMT queries with no committed
-session artifacts.
+proofs are fast SMT queries with no committed session artifacts.
 
 ### 4. Flux - planned
 

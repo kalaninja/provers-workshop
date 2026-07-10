@@ -104,10 +104,8 @@ just init-hooks              # wire the repo-tracked pre-push hook into this clo
 ## Repo map
 
 ```
-mise.toml                   tool pins (stable Rust, just, nextest, node, pnpm)
-mise.nightly.toml           pinned nightly rustfmt        (MISE_ENV=nightly)
-mise.solana.toml            pinned Agave / cargo-build-sbf (MISE_ENV=solana)
-mise.creusot.toml           Creusot's pinned nightly       (MISE_ENV=creusot)
+mise/config.toml            tool pins (stable Rust, just, nextest, node, pnpm)
+mise/config.<env>.toml      per-lane overlays: nightly, solana, creusot, kani, verus (MISE_ENV=<env>)
 Dockerfile                  tooling stages: base / rust / node / solana / creusot
 scripts/docker/run-tooling.sh   docker-run wrapper every recipe goes through
 scripts/hooks/pre-push      change-scoped checks (rust lane, creusot replay)

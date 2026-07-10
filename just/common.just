@@ -6,3 +6,4 @@ solana_tooling_image := env_var_or_default("SOLANA_TOOLING_IMAGE", "workshop-sol
 node_tooling_image := env_var_or_default("NODE_TOOLING_IMAGE", "workshop-node-tooling:dev")
 creusot_tooling_image := env_var_or_default("CREUSOT_TOOLING_IMAGE", "workshop-creusot-tooling:dev")
 kani_tooling_image := env_var_or_default("KANI_TOOLING_IMAGE", "workshop-kani-tooling:dev")
+verus_tooling_image := env_var_or_default("VERUS_TOOLING_IMAGE", "workshop-verus-tooling:dev")

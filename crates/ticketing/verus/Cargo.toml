@@ -1,0 +1,34 @@
+[package]
+name = "ticketing-verus"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["lib"]
+
+[lints]
+workspace = true
+
+# `vstd` (Verus's stdlib) is the one verification-only dependency, and it is NOT auto-injected:
+# cargo-verus collects it from the cargo dependency graph (keyed on the `[package.metadata.verus]`
+# is-vstd flag on vstd itself), unlike cargo-kani which injects `kani`. Its prelude re-exports the
+# `verus!` macro and it pulls verus_builtin/_macros transitively. Pinned to the version bundled with
+# the pinned Verus release (cargo-verus checks verus<->vstd compatibility). Optional + gated by the
+# `verus` feature, so ordinary host/SBF builds never activate or build it - the crate stays
+# verifier-free. Program cores + ticketing-interface arrive with the port (next step).
+[dependencies]
+vstd = { version = "=0.0.0-2026-06-14-0213", optional = true }
+
+[features]
+default = []
+# Turns on the Verus spec surface (vstd import + verus!{} proofs) by activating the vstd dep.
+# cargo-verus verifies with `--features verus`; the flag flips the gating so ordinary host/SBF
+# builds stay verifier-free. (cargo-verus exposes no cargo-visible cfg, so a feature - not
+# `[target.'cfg(verus)']` - is the gate.)
+verus = ["dep:vstd"]
+
+# Marks the crate for verification by cargo-verus (ignored by ordinary cargo builds).
+[package.metadata.verus]
+verify = true

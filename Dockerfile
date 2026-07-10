@@ -1,9 +1,14 @@
 # syntax=docker/dockerfile:1
 ARG WORKSHOP_IMAGE_PLATFORM=linux/amd64
 
+# Base image for every tooling stage. Defaults to bookworm; the Verus lane overrides it to a newer
+# Debian via --build-arg in `just tooling build-verus`, because the verus/cargo-verus release
+# binaries need glibc >= 2.39 and bookworm ships 2.36. Every other lane keeps bookworm.
+ARG TOOLING_BASE_IMAGE=debian:bookworm-slim
+
 # Agave does not publish a Linux arm64 Solana release archive with cargo-build-sbf.
 # Pin the tooling platform to amd64 so local Apple Silicon builds match CI.
-FROM --platform=${WORKSHOP_IMAGE_PLATFORM} debian:bookworm-slim AS tooling-base
+FROM --platform=${WORKSHOP_IMAGE_PLATFORM} ${TOOLING_BASE_IMAGE} AS tooling-base
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV CARGO_HOME=/opt/cargo
@@ -32,7 +37,7 @@ RUN apt-get update \
 
 WORKDIR /workspace
 
-COPY mise.toml ./
+COPY mise/config.toml ./mise/config.toml
 
 RUN --mount=type=secret,id=github_token \
     export GITHUB_TOKEN="$(cat /run/secrets/github_token 2>/dev/null || true)" \
@@ -44,7 +49,7 @@ RUN --mount=type=secret,id=github_token \
 
 FROM tooling-base AS rust-tooling
 
-COPY mise.nightly.toml ./
+COPY mise/config.nightly.toml ./mise/config.nightly.toml
 
 RUN --mount=type=secret,id=github_token \
     export GITHUB_TOKEN="$(cat /run/secrets/github_token 2>/dev/null || true)" \
@@ -70,7 +75,7 @@ RUN --mount=type=secret,id=github_token \
 
 FROM rust-tooling AS solana-tooling
 
-COPY mise.solana.toml ./
+COPY mise/config.solana.toml ./mise/config.solana.toml
 
 RUN --mount=type=secret,id=github_token \
     export GITHUB_TOKEN="$(cat /run/secrets/github_token 2>/dev/null || true)" \
@@ -83,7 +88,7 @@ RUN --mount=type=secret,id=github_token \
 FROM tooling-base AS creusot-tooling
 
 # FROM tooling-base, not rust-tooling: Creusot installs only its own nightly, keeping the image slim.
-COPY mise.creusot.toml ./
+COPY mise/config.creusot.toml ./mise/config.creusot.toml
 
 # Creusot stores its toolchain, Why3, provers, and Why3 confs under XDG paths, baked to a fixed
 # /opt/creusot that run-tooling.sh points HOME/XDG/WHY3CONFIG at when MISE_ENV=creusot. Creusot writes
@@ -129,7 +134,7 @@ FROM tooling-base AS kani-tooling
 # FROM tooling-base, not rust-tooling: like Creusot, Kani needs only a base cargo to build
 # kani-verifier and dispatch `cargo kani`; it ships/uses its OWN nightly toolchain + CBMC
 # backend (fetched by `cargo kani setup`).
-COPY mise.kani.toml ./
+COPY mise/config.kani.toml ./mise/config.kani.toml
 
 # `cargo kani setup` downloads the kani-compiler, CBMC/kissat backend, and a matching nightly
 # under KANI_HOME. Bake it to a fixed /opt/kani that run-tooling.sh points KANI_HOME at when
@@ -151,3 +156,31 @@ RUN --mount=type=secret,id=github_token \
 
 # Cheap self-test in a separate layer so the expensive setup above stays cached.
 RUN command -v cargo-kani
+
+FROM tooling-base AS verus-tooling
+
+# Two divergences from kani/creusot. (1) tooling-base is built on trixie here (TOOLING_BASE_IMAGE
+# above): the verus/cargo-verus release binaries need glibc >= 2.39 and bookworm ships 2.36. (2)
+# This lane needs a real rustup toolchain: Verus is a rustc driver (rust_verify dynamically links
+# 1.96.0 with rustc-dev/rust-src/llvm-tools, and the launcher resolves it via rustup).
+# mise/config.verus.toml provisions that toolchain; the release bundle (verus + cargo-verus + bundled Z3 +
+# precompiled vstd) is downloaded and PATH'd on top.
+COPY mise/config.verus.toml ./mise/config.verus.toml
+
+ENV VERUS_HOME=/opt/verus
+# Rolling releases; pin the exact tag for reproducibility. The bundle carries Z3 4.12.5 + vstd.
+ARG VERUS_RELEASE=release/0.2026.07.05.49b8806
+
+RUN --mount=type=secret,id=github_token \
+    export GITHUB_TOKEN="$(cat /run/secrets/github_token 2>/dev/null || true)" \
+    && mise install -E verus rust \
+    && mkdir -p /opt/verus \
+    && curl -fL "https://github.com/verus-lang/verus/releases/download/${VERUS_RELEASE}/verus-${VERUS_RELEASE#release/}-x86-linux.zip" -o /tmp/verus.zip \
+    && unzip -q /tmp/verus.zip -d /opt/verus \
+    && ln -sf /opt/verus/verus-x86-linux/verus /usr/local/bin/verus \
+    && ln -sf /opt/verus/verus-x86-linux/cargo-verus /usr/local/bin/cargo-verus \
+    && rm -f /tmp/verus.zip \
+    && chmod -R a+rwX /opt/verus /opt/cargo /opt/mise /opt/rustup
+
+# Cheap self-test in a separate layer so the expensive download above stays cached.
+RUN command -v cargo-verus && command -v verus
