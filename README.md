@@ -46,10 +46,11 @@ identical contracts.
 | 8 | [Prusti](https://github.com/viperproject/prusti-dev) | deductive, Viper backend | on hold |
 
 Creusot and Kani are wired up today. The ordering rationale, integration
-ground rules, per-prover notes, and the running comparison live in
-[docs/provers.md](docs/provers.md). What we compare per prover: what has to be
-marked trusted, how the contracts read, proof and replay speed, and how far
-the cores must bend to fit the tool.
+ground rules, and the running comparison live in the roadmap index
+[docs/provers.md](docs/provers.md); each wired lane has a full report next to
+it ([docs/creusot.md](docs/creusot.md), [docs/kani.md](docs/kani.md)). What we
+compare per prover: what has to be marked trusted, how the contracts read,
+proof and replay speed, and how far the cores must bend to fit the tool.
 
 ## The program
 
@@ -121,7 +122,9 @@ idl/ticketing.json          committed codama IDL (regenerated via `just solana g
 clients/                    codama-js codegen harness (runs in the node image)
 verif/                      committed proof sessions per prover crate (verif/ticketing_creusot_rlib, one proof.json per VC)
 why3find.json               prover configuration (alt-ergo, z3, cvc5 + tactics)
-docs/provers.md             prover roadmap: roster, order, notes, running comparison
+docs/provers.md             prover roadmap index: roster, order, running comparison, summaries
+docs/<prover>.md            full per-lane reports (creusot.md, kani.md)
+docs/status-log.md          dated chronology of the workshop
 ```
 
 ## How the pieces fit
