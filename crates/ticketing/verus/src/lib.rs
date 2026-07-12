@@ -23,7 +23,6 @@
 //! graph, while `cargo verus verify --features verus` checks the cores. Only
 //! `vstd` and the foreign-type registration block (spec-only declarations) sit
 //! behind the `verus` feature.
-
 #![warn(missing_docs)]
 #![warn(rustdoc::broken_intra_doc_links)]
 

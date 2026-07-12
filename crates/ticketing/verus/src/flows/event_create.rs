@@ -1,5 +1,4 @@
 //! Verified decision core for the `event_create` instruction.
-
 use core::num::NonZeroU64;
 
 use pinocchio::{Address, error::ProgramError};
@@ -31,7 +30,15 @@ pub fn create_event(
         is_set(organizer),
     ensures
         match result {
-            Ok(e) => event_is_initial(e, organizer, capacity, price_lamports, name, bump, created_slot),
+            Ok(e) => event_is_initial(
+                e,
+                organizer,
+                capacity,
+                price_lamports,
+                name,
+                bump,
+                created_slot,
+            ),
             Err(_) => capacity@ * price_lamports@ > u64::MAX,
         },
 {

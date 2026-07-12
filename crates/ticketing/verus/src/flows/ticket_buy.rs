@@ -3,7 +3,6 @@
 //! Holds the pure purchase decision - validate the organizer, clamp the sale,
 //! price it, and build the buyer's ticket - so every constructor/mutator call
 //! runs at a verified call site.
-
 use core::num::NonZeroU64;
 
 use pinocchio::{Address, error::ProgramError};

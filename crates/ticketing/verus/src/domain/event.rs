@@ -1,7 +1,6 @@
 //! Event predicates and the verified lifecycle/accounting mutators. Mirrors the
 //! Creusot lane's `EventOps` 1:1 in behavior; the ghost layer (spec fns,
 //! contracts, proofs) erases from ordinary/SBF builds.
-
 use core::num::NonZeroU64;
 
 use pinocchio::{Address, error::ProgramError};
@@ -19,7 +18,6 @@ use crate::domain::extern_specs::{account_header, nz_checked_mul, nz_min, zero_r
 verus! {
 
 // --- predicates -----------------------------------------------------------------------------
-
 /// Whether ticket sales are open.
 pub open spec fn is_status_sales_open(e: Event) -> bool {
     e.status == EventStatus::SalesOpen
@@ -81,7 +79,6 @@ pub open spec fn is_legal_transition_from(e: Event, prev: Event) -> bool {
 }
 
 // --- verified mutators ----------------------------------------------------------------------
-
 /// Builds a fresh sales-open event with a zeroed counter - the base case for
 /// [`event_invariant`].
 pub fn event_new(
@@ -121,7 +118,11 @@ pub fn validate_organizer(e: &Event, organizer: &Address) -> (r: Result<(), Prog
             Err(_) => e.organizer != *organizer,
         },
 {
-    if e.organizer == *organizer { Ok(()) } else { Err(ProgramError::InvalidAccountData) }
+    if e.organizer == *organizer {
+        Ok(())
+    } else {
+        Err(ProgramError::InvalidAccountData)
+    }
 }
 
 /// Returns `Ok` when this event's ticket sales are open.
@@ -141,10 +142,10 @@ pub fn require_sales_open(e: &Event) -> (r: Result<(), ProgramError>)
 
 /// Records a ticket sale, clamping `requested` to remaining capacity and
 /// returning the quantity actually sold.
-pub fn record_sale(
-    event: &mut Event,
-    requested: NonZeroU64,
-) -> (result: Result<NonZeroU64, ProgramError>)
+pub fn record_sale(event: &mut Event, requested: NonZeroU64) -> (result: Result<
+    NonZeroU64,
+    ProgramError,
+>)
     requires
         event_invariant(*old(event)),
     ensures
@@ -152,17 +153,13 @@ pub fn record_sale(
         match result {
             Ok(actual) => {
                 &&& is_status_sales_open(*old(event))
-                &&& actual@ as int == min(
-                    requested@ as int,
-                    old(event).capacity@ - old(event).sold,
-                )
+                &&& actual@ as int == min(requested@ as int, old(event).capacity@ - old(event).sold)
                 &&& actual@ * old(event).price_lamports@ <= u64::MAX
                 &&& final(event).sold == old(event).sold + actual@
                 &&& *final(event) == (Event { sold: final(event).sold, ..*old(event) })
             },
             Err(_) => {
-                &&& (!is_status_sales_open(*old(event))
-                    || old(event).sold == old(event).capacity@)
+                &&& (!is_status_sales_open(*old(event)) || old(event).sold == old(event).capacity@)
                 &&& *final(event) == *old(event)
             },
         },
@@ -182,7 +179,8 @@ pub fn record_sale(
         assert(actual@ * event.price_lamports@ <= u64::MAX) by (nonlinear_arith)
             requires
                 actual@ <= event.capacity@,
-                event.capacity@ * event.price_lamports@ <= u64::MAX;
+                event.capacity@ * event.price_lamports@ <= u64::MAX,
+        ;
     }
 
     let Some(new_sold) = event.sold.checked_add(actual.get()) else {

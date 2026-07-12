@@ -1,5 +1,4 @@
 //! Verified decision core for the `event_close` instruction.
-
 use pinocchio::{Address, error::ProgramError};
 use ticketing_interface::Event;
 use verus_builtin_macros::verus;

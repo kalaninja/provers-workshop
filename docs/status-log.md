@@ -18,7 +18,11 @@ lane and what it taught, newest first.
   favor of vstd's model: specs use the canonical `@` view, `new`/`get` ride
   vstd's specs, and the crate-level `#![feature(nonzero_internals)]` gate, the
   `nz_int` axiom, and two of the four `nz_*` wrappers are gone (only
-  `checked_mul`/`Ord::min`, unspecced by vstd, stay trusted).
+  `checked_mul`/`Ord::min`, unspecced by vstd, stay trusted). Formatting inside
+  `verus!{}` (unreachable to rustfmt) is covered by a pinned `verusfmt` (v0.7.2)
+  in the tooling image: `just verus fmt` / `fmt-check` run it `--verus-only`
+  (nightly rustfmt keeps everything outside the blocks; the two do not fight),
+  and `fmt-check` joins `verify` in the pre-push gate.
 - **2026-07-11** - Verus lane wired up as a full SBF program: trusted
   `instructions/` shells + dispatcher + `entrypoint!` + `cdylib` around the three
   verified `flows/` cores, behavior-identical to Creusot/Kani. `just verus verify`

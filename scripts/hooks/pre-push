@@ -66,6 +66,7 @@ if $kani_changed; then
 fi
 
 if $verus_changed; then
+  run just verus fmt-check
   run just verus verify
 fi
 

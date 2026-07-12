@@ -183,5 +183,15 @@ RUN --mount=type=secret,id=github_token \
     && rm -f /tmp/verus.zip \
     && chmod -R a+rwX /opt/verus /opt/cargo /opt/mise /opt/rustup
 
-# Cheap self-test in a separate layer so the expensive download above stays cached.
-RUN command -v cargo-verus && command -v verus
+# Pinned verusfmt: formats inside `verus!{}` blocks, which rustfmt cannot reach. Separate layer so
+# the expensive Verus download above stays cached. Extraction is layout-agnostic on purpose (the
+# cargo-dist tarball nests the binary in a per-target directory).
+ARG VERUSFMT_VERSION=v0.7.2
+RUN curl -fL "https://github.com/verus-lang/verusfmt/releases/download/${VERUSFMT_VERSION}/verusfmt-x86_64-unknown-linux-gnu.tar.xz" -o /tmp/verusfmt.tar.xz \
+    && mkdir -p /tmp/verusfmt \
+    && tar -xJf /tmp/verusfmt.tar.xz -C /tmp/verusfmt \
+    && install -m 0755 "$(find /tmp/verusfmt -type f -name verusfmt)" /usr/local/bin/verusfmt \
+    && rm -rf /tmp/verusfmt /tmp/verusfmt.tar.xz
+
+# Cheap self-test in a separate layer so the expensive downloads above stay cached.
+RUN command -v cargo-verus && command -v verus && verusfmt --version

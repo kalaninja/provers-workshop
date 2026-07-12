@@ -14,7 +14,6 @@
 //! cover: `checked_mul` and `Ord::min` on `NonZero` (trusted wrappers, the
 //! Creusot `ax_*` analog), the opaque `Address`, and the wire/state type
 //! registrations.
-
 use core::num::NonZeroU64;
 
 // Types used only by the feature-gated spec surface below.
@@ -45,7 +44,7 @@ pub struct ExAddress(Address);
 pub uninterp spec fn is_set(a: Address) -> bool;
 
 /// Runtime `Address` equality, related to spec equality on the opaque value.
-pub assume_specification [ <Address as PartialEq>::eq ](a: &Address, b: &Address) -> (r: bool)
+pub assume_specification[ <Address as PartialEq>::eq ](a: &Address, b: &Address) -> (r: bool)
     ensures
         r == (*a == *b),
 ;
@@ -81,10 +80,8 @@ pub struct ExEvent(Event);
 pub struct ExTicket(Ticket);
 
 } // verus!
-
 // --- trusted exec wrappers: ghost clauses erase, bodies ship
 // ------------------------------
-
 verus! {
 
 /// `checked_mul`: `None` exactly on `u64` overflow, else the product on the

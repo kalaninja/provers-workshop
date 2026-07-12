@@ -1,6 +1,5 @@
 //! Ticket predicates and the verified ticket constructor. Mirrors the Creusot
 //! lane's `TicketOps`; the ghost layer erases from ordinary/SBF builds.
-
 use core::num::NonZeroU64;
 
 use pinocchio::Address;
@@ -18,7 +17,6 @@ use crate::domain::extern_specs::{account_header, zero_reserved};
 verus! {
 
 // --- predicates -----------------------------------------------------------------------------
-
 /// Ticket invariant: both the event and buyer addresses are set.
 pub open spec fn ticket_invariant(t: Ticket) -> bool {
     is_set(t.event) && is_set(t.buyer)
@@ -51,7 +49,6 @@ pub open spec fn ticket_is_consistent_with(t: Ticket, event_addr: Address, e: Ev
 }
 
 // --- verified constructor -------------------------------------------------------------------
-
 /// Builds a buyer's ticket for a priced sale.
 pub fn ticket_new(
     event: Address,

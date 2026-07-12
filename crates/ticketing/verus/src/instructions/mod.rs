@@ -4,7 +4,6 @@
 //! PDA creation, clock reads, CPIs, persistence - and is outside Verus
 //! verification (plain Rust outside `verus!{}`, external by construction).
 //! Each handler keeps its decision logic in a verified `flows` core.
-
 use pinocchio::{AccountView, Address, ProgramResult, error::ProgramError};
 use ticketing_interface::{
     EventCreateArgs, TicketBuyArgs, TicketingInstruction,
