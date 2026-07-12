@@ -19,7 +19,7 @@ starting its lane.
 | --- | --- | --- | --- |
 | 1 | [Creusot](https://github.com/creusot-rs/creusot) | deductive, translated to Why3 + SMT | wired up (the baseline) - [report](creusot.md) |
 | 2 | [Kani](https://github.com/model-checking/kani) | bounded model checking (CBMC) | wired up - [report](kani.md) |
-| 3 | [Verus](https://github.com/verus-lang/verus) | SMT over a verification dialect of Rust | scaffolded - tooling wired, cores pending |
+| 3 | [Verus](https://github.com/verus-lang/verus) | SMT over a verification dialect of Rust | wired up - [report](verus.md) |
 | 4 | [Flux](https://github.com/flux-rs/flux) | refinement (liquid) types | planned |
 | 5 | [Aeneas](https://github.com/AeneasVerif/aeneas) | functional translation to Lean, interactive proofs | planned |
 | 6 | [hax](https://github.com/cryspen/hax) | translation to F* / Rocq / Lean | planned |
@@ -90,14 +90,14 @@ Columns fill in as lanes land.
 
 | Axis | Creusot | Kani | Verus | Flux | Aeneas | hax | VeriFast | Prusti |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Trusted surface | `instructions/` shells; `ax_*` axioms + opaque `int`/`is_set` for `NonZeroU64`/`Address` | `instructions/` shell interiors past account parsing - the dispatcher byte front (discriminator + args parse + account-count checks) is verified panic-free; foreign-type ops are plain std (`checked_mul`, `==`, ...) + a concrete `is_set`, all verified, no axioms | - | - | - | - | - | - |
-| Contract legibility | `requires`/`ensures` attributes + pearlite (`@`, `*x`/`^x`, `Int`) | function contracts on the fns (`#[cfg_attr(kani, kani::requires/ensures)]`, `-Z function-contracts`) checked by `#[kani::proof_for_contract]`; `old(*e)`/`*e` for pre/post - close to Creusot's clauses | - | - | - | - | - | - |
-| Completeness | full deductive proof | bounded model check; the cores are loop-free (no unwinding bounds) but `capacity` bounded to `u8` to keep the nonlinear `capacity*price` tractable; `kani::cover!` guards the bounded domain against vacuous passes; the dispatcher harness bounds its parser loops with `#[kani::unwind]` | - | - | - | - | - | - |
-| Proof / replay speed | tbd (time `just creusot verify` / `replay`) | ~310s wall-clock from scratch (`-j` parallel harnesses; bounded by the dispatcher's ~300s, `purchase` ~210s, others 32-54s); no replay | - | - | - | - | - | - |
+| Trusted surface | `instructions/` shells; `ax_*` axioms + opaque `int`/`is_set` for `NonZeroU64`/`Address` | `instructions/` shell interiors past account parsing - the dispatcher byte front (discriminator + args parse + account-count checks) is verified panic-free; foreign-type ops are plain std (`checked_mul`, `==`, ...) + a concrete `is_set`, all verified, no axioms | opaque `is_set` + trusted `Address` eq, `nz_checked_mul`/`nz_min` wrappers (the two `NonZero` ops vstd leaves unspecced; the `NonZero` model itself is vstd's) + header/reserved ctors, plus `external_type_specification` registrations for `Event`/`Ticket`/`EventStatus`/`ProgramError` + wire types (the layer Creusot got free by translating the graph); trusted `instructions/` shells like every lane | - | - | - | - | - |
+| Contract legibility | `requires`/`ensures` attributes + pearlite (`@`, `*x`/`^x`, `Int`) | function contracts on the fns (`#[cfg_attr(kani, kani::requires/ensures)]`, `-Z function-contracts`) checked by `#[kani::proof_for_contract]`; `old(*e)`/`*e` for pre/post - close to Creusot's clauses | inline `requires`/`ensures` in `verus!{}` (specs and code in one dialect); `*old(x)`/`*final(x)` for pre/post, vstd's `@` views for `NonZero`, frame conditions as functional-update struct `==` - the closest match to Creusot's pearlite | - | - | - | - | - |
+| Completeness | full deductive proof; the nonlinear `capacity*price <= u64::MAX` closes with no in-code hint (Why3 + the alt-ergo/z3/cvc5 ensemble handle it) | bounded model check; the cores are loop-free (no unwinding bounds) but `capacity` bounded to `u8` to keep the nonlinear `capacity*price` tractable; `kani::cover!` guards the bounded domain against vacuous passes; the dispatcher harness bounds its parser loops with `#[kani::unwind]` | full SMT proof, unbounded - the nonlinear `capacity*price <= u64::MAX` is discharged with one `assert ... by (nonlinear_arith)` - unbounded like Creusot, but Creusot's solver ensemble needed no in-code hint where Verus's single Z3 does - and no `u8` capacity cap (unlike Kani); dispatcher byte front deferred | - | - | - | - | - |
+| Proof / replay speed | tbd (time `just creusot verify` / `replay`) | ~310s wall-clock from scratch (`-j` parallel harnesses; bounded by the dispatcher's ~300s, `purchase` ~210s, others 32-54s); no replay | fast (`11 verified` in seconds of solver time); re-verifies from scratch, no replay | - | - | - | - | - |
 | Artifact story | 23 `proof.json` sessions under `verif/`, deterministic replay in pre-push | none committed - re-verifies from scratch every run | none committed - re-verifies from scratch (fast SMT queries) | - | - | - | - | - |
-| Code bending | none in core bodies; extension-trait plumbing for foreign impls | cores call std directly (no axiom shims); predicates are `#[cfg(kani)]` bool fns on hand-written `*Ops` traits; PODs built field-by-field | - | - | - | - | - | - |
-| Toolchain fit | own nightly (2026-04-21) + opam-built Why3/solvers; the heaviest image | self-contained bundle (kani-verifier 0.67.0 + CBMC/kissat) via `cargo kani setup`; light image | release bundle (verus `0.2026.07.05` + bundled Z3 4.12.5) over a pinned stable 1.96.0 rustup toolchain, download-and-extract; needs glibc >= 2.39 so its base is trixie not the shared bookworm; `vstd` pinned from crates.io | - | - | - | - | - |
-| Maintenance | active, research-led (v0.12.0 pinned) | active (AWS); drives the std verification campaign | - | - | - | - | - | - |
+| Code bending | none in core bodies; extension-trait plumbing for foreign impls | cores call std directly (no axiom shims); predicates are `#[cfg(kani)]` bool fns on hand-written `*Ops` traits; PODs built field-by-field | low - the cores are written inside `verus!{}` and the proc-macro erases the ghost layer outside `cargo verus`, so the same source builds host+SBF like the siblings; residual bending is free `fn`s instead of `*Ops` traits, one `by (nonlinear_arith)` hint, and the verify recipe forcing `--cfg feature="nonzero_internals"` (vstd ships its `NonZero` model behind an undeclared feature) | - | - | - | - | - |
+| Toolchain fit | own nightly (2026-04-21) + opam-built Why3/solvers; the heaviest image | self-contained bundle (kani-verifier 0.67.0 + CBMC/kissat) via `cargo kani setup`; light image | release bundle (verus `0.2026.07.12` rolling + bundled Z3 4.12.5) over a pinned stable 1.96.0 rustup toolchain, download-and-extract; needs glibc >= 2.39 so its base is trixie not the shared bookworm; `vstd` pinned from crates.io (newest, `2026-07-12`); no stable release newer than 07-05 yet, re-pin when one lands | - | - | - | - | - |
+| Maintenance | active, research-led (v0.12.0 pinned) | active (AWS); drives the std verification campaign | active, research-led (weekly releases; drives a Rust std-verification effort) | - | - | - | - | - |
 
 ## Prover notes
 
@@ -125,7 +125,7 @@ boundary is implicit in the harness set.
 
 Full report: [kani.md](kani.md).
 
-### 3. Verus - scaffolded (tooling wired, cores pending)
+### 3. Verus - wired up
 
 [Verus](https://github.com/verus-lang/verus) checks a verification dialect of
 Rust against Z3, with specs and proofs written in the language itself. The
@@ -140,10 +140,11 @@ surface enters the normal and SBF builds or the cores get re-stated in a
 parallel module, straining the byte-identical premise. How far the cores (or
 the shells around them) must bend is exactly what this lane measures.
 
-The tooling lane is wired (`mise/config.verus.toml`, a `verus-tooling` Docker stage,
-`just verus verify`, a pre-push glob, and a `ticketing-verus` skeleton whose one
-smoke proof verifies); the cores/contracts port comes next. Three integration
-findings already diverge from the Creusot/Kani template:
+The full lane is wired: `mise/config.verus.toml`, a `verus-tooling` Docker stage,
+`just verus verify`, a pre-push glob, and a `ticketing-verus` crate whose three
+cores + domain contracts verify (`11 verified, 0 errors`). Full report:
+[verus.md](verus.md). Three tooling-integration findings diverge from the
+Creusot/Kani template:
 
 - **Not self-contained.** Verus is a rustc driver whose release bundle pins a
   stable rustc (1.96.0) but does *not* ship it: the stage installs that
@@ -156,14 +157,36 @@ findings already diverge from the Creusot/Kani template:
 - **Gates by Cargo feature, not cfg.** `cargo-verus` drives via
   `RUSTC_WRAPPER=verus-driver` and exposes no cargo-visible `--cfg verus` (unlike
   `cargo kani`/`cargo creusot`), so the `[target.'cfg(<prover>)'.dependencies]`
-  trick cannot work; the lane gates the whole Verus surface behind a `verus`
-  Cargo feature instead (no `cfg(verus)` in `unexpected_cfgs`). `vstd` is not
-  auto-injected either - it rides in as an optional, feature-gated crates.io
-  dependency pinned to the bundled version.
+  trick cannot work; what still needs gating - the optional `vstd` dependency
+  and the foreign-type registrations - sits behind a `verus` Cargo feature
+  instead (no `cfg(verus)` in `unexpected_cfgs`). The rest of the spec surface
+  needs no gate at all: the `verus!` proc-macro erases it outside `cargo verus`.
+  `vstd` is not auto-injected either - it rides in as an optional, feature-gated
+  crates.io dependency pinned to the bundled version.
 
-Notes for the cores step: `NonZeroU64`/`Address` go through
-`assume_specification` / external type specs, so the axiom analog remains;
-proofs are fast SMT queries with no committed session artifacts.
+It is a full program like the siblings (trusted `instructions/` shells +
+dispatcher + `entrypoint!` + `cdylib`, verified `flows/` cores), written as
+idiomatic Verus: the cores live inside `verus!{}` with inline contracts, and
+the `verus!` proc-macro (an ordinary crates.io dependency) erases the ghost
+layer outside `cargo verus`, so `cargo build-sbf` produces a real `.so` from
+the same source while `vstd` (which cannot link into the `no_std` SBF build)
+never enters it. The generated client's Mollusk suite passes against
+`ticketing_verus.so` just as it does against the Creusot and Kani `.so`s.
+
+`NonZeroU64` was the integration wall: a monomorphic `NonZero<u64>` whose bound
+`ZeroablePrimitive` has a private sealed supertrait, unregisterable the normal
+way, and `vstd` ships its own `NonZero` model (`std_specs/nonzero.rs`) behind a
+feature its manifest never declares, so no dependency can enable it through
+Cargo. The lane forces that cfg on in the verify recipe
+(`RUSTFLAGS=--cfg feature="nonzero_internals"` - only `vstd` tests it), so the
+specs ride vstd's canonical `@` view and `new`/`get` specs with no unstable
+feature gate or hand-rolled registration in the program crate; only
+`checked_mul`/`Ord::min` (unspecced by vstd on `NonZero`) remain as trusted
+wrappers. The nonlinear `capacity*price <= u64::MAX` is proved unbounded (one
+`by (nonlinear_arith)`, no `u8` cap); proofs are fast SMT queries with no
+committed artifacts. *Verifying* the dispatcher byte front is deferred (its code
+is present but trusted; proving it needs specs on the unsafe parsers + a
+`BoundedString` loop invariant - a weak deductive-Verus fit).
 
 ### 4. Flux - planned
 

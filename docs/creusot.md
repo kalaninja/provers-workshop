@@ -26,6 +26,11 @@ section.
   `is_set`).
 - The orphan rule pushes foreign-type contracts through crate-local extension
   traits; the `creusot_extension` proc-macro keeps trait and impl attributes
-  from drifting.
+  from drifting. (The `extern_spec!` route is closed here: the std spec for
+  `PartialEq::eq` speaks through `DeepModel`, which a foreign type cannot be
+  given from this crate. Contrast with the Verus lane, whose
+  `assume_specification` is a verifier-level registration the orphan rule does
+  not touch - it pins the same equality axiom onto `<Address as
+  PartialEq>::eq` itself; see [verus.md](verus.md).)
 - Proof sessions replay deterministically: reviewable artifacts, no solver
   roulette in CI.

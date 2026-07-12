@@ -3,6 +3,49 @@
 The dated chronology of [the prover roadmap](provers.md): what landed in each
 lane and what it taught, newest first.
 
+- **2026-07-12** - Verus toolchain bumped to the newest available build,
+  `release/rolling/0.2026.07.12.0b42f4c` + matching crates.io `vstd`
+  `2026-07-12`, staying on stable rustc 1.96.0; `just verus verify` still
+  `11 verified, 0 errors`. No *stable* release newer than 07-05 exists yet, so
+  this is the rolling build - re-pin to the next stable when it lands. The
+  `Dockerfile` release-asset derivation was generalized (`${VERUS_RELEASE##*/}`)
+  to handle the extra `rolling/` path segment. `NonZero` payoff: the `07-12`
+  `vstd` ships `std_specs/nonzero.rs`, but gates it behind an **undeclared**
+  `nonzero_internals` Cargo feature, so it cannot be enabled from a dependency
+  (`cargo` rejects `features = ["nonzero_internals"]`). The verify recipe now
+  forces the cfg on (`RUSTFLAGS=--cfg feature="nonzero_internals"`; only `vstd`
+  tests it), which retires the lane's hand-rolled `NonZeroU64` registration in
+  favor of vstd's model: specs use the canonical `@` view, `new`/`get` ride
+  vstd's specs, and the crate-level `#![feature(nonzero_internals)]` gate, the
+  `nz_int` axiom, and two of the four `nz_*` wrappers are gone (only
+  `checked_mul`/`Ord::min`, unspecced by vstd, stay trusted).
+- **2026-07-11** - Verus lane wired up as a full SBF program: trusted
+  `instructions/` shells + dispatcher + `entrypoint!` + `cdylib` around the three
+  verified `flows/` cores, behavior-identical to Creusot/Kani. `just verus verify`
+  is green (`11 verified, 0 errors`); `just solana build/test-client-rust
+  ticketing verus` builds `ticketing_verus.so` and the generated client's Mollusk
+  suite passes against it - the same 7 tests that pass against the Creusot and
+  Kani `.so`s (the client test now reads `TICKETING_PROGRAM_NAME`, and the
+  `just solana build`/`test*` recipes take a `lane` arg). The lane is written as
+  idiomatic Verus: the cores live inside `verus!{}` with inline contracts, and
+  the `verus!` proc-macro (`verus_builtin_macros`, an ordinary crates.io
+  dependency pinned with `vstd`) erases the ghost layer outside `cargo verus`,
+  so ordinary/SBF builds compile the same source to the plain program with no
+  `vstd` (which cannot link into `no_std` SBF) and zero verification overhead;
+  only `vstd` and the foreign-type registrations stay behind the `verus`
+  feature. The nonlinear
+  `capacity*price <= u64::MAX` is proved *unbounded* (one `by (nonlinear_arith)`,
+  no `u8` cap, unlike Kani); non-vacuity mutation-tested (deleting `create_event`'s
+  overflow guard turns the run red). Headline wall: `NonZeroU64` (a monomorphic
+  `NonZero<u64>` whose bound `ZeroablePrimitive` has a private sealed supertrait)
+  cannot be registered normally and `vstd` ships no usable `NonZero` spec
+  (`nonzero.rs` landed upstream one day after the release was cut; a later
+  crates.io `vstd`, `2026-07-12`, has it but gates it behind an undeclared
+  `nonzero_internals` feature, so a dep cannot turn it on) - unblocked with **no
+  toolchain bump** via
+  `external_trait_private_bound` + a feature-gated `#![feature(nonzero_internals)]`,
+  modeling it with Creusot-style axiom shims. *Verifying* the dispatcher byte
+  front is deferred. Full report: [verus.md](verus.md).
 - **2026-07-10** - Verus lane scaffolded: `mise/config.verus.toml` (stable 1.96.0 +
   rustc-dev/rust-src/llvm-tools), a `verus-tooling` Docker stage (downloads and
   extracts `release/0.2026.07.05.49b8806` with its bundled Z3 4.12.5), `just

@@ -28,9 +28,14 @@ use ticketing_interface::test_utils::{
     mollusk_for, rent_exempt_minimum, system_program_account,
 };
 
-/// SBF artefact name Mollusk loads (Cargo normalises the package name to
-/// this).
-const PROGRAM_NAME: &str = "ticketing_creusot";
+/// SBF artefact name Mollusk loads from `SBF_OUT_DIR` (Cargo normalises the
+/// package name to this). Defaults to the Creusot baseline; set
+/// `TICKETING_PROGRAM_NAME` (e.g. `ticketing_kani`, `ticketing_verus`) to run
+/// these tests against another lane's `.so` - the program is behavior-identical
+/// across lanes, so the same client suite must pass against every version.
+fn program_name() -> String {
+    std::env::var("TICKETING_PROGRAM_NAME").unwrap_or_else(|_| "ticketing_creusot".to_string())
+}
 
 const CAPACITY: u64 = 500;
 const PRICE_LAMPORTS: u64 = 2_000_000;
@@ -44,7 +49,7 @@ fn event_name(bytes: &[u8]) -> EventName {
 
 #[test]
 fn full_lifecycle_via_client() {
-    let mollusk: Mollusk = mollusk_for(&TICKETING_ID, PROGRAM_NAME);
+    let mollusk: Mollusk = mollusk_for(&TICKETING_ID, &program_name());
 
     let organizer = Address::from([30; 32]);
     let buyer = Address::from([32; 32]);
@@ -115,7 +120,7 @@ fn full_lifecycle_via_client() {
 
 #[test]
 fn ticket_buy_via_client_is_rejected_after_close() {
-    let mollusk: Mollusk = mollusk_for(&TICKETING_ID, PROGRAM_NAME);
+    let mollusk: Mollusk = mollusk_for(&TICKETING_ID, &program_name());
 
     let organizer = Address::from([40; 32]);
     let buyer = Address::from([42; 32]);

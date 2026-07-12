@@ -169,13 +169,14 @@ COPY mise/config.verus.toml ./mise/config.verus.toml
 
 ENV VERUS_HOME=/opt/verus
 # Rolling releases; pin the exact tag for reproducibility. The bundle carries Z3 4.12.5 + vstd.
-ARG VERUS_RELEASE=release/0.2026.07.05.49b8806
+# No stable release newer than 0.2026.07.05 exists yet; re-pin to the next stable when it lands.
+ARG VERUS_RELEASE=release/rolling/0.2026.07.12.0b42f4c
 
 RUN --mount=type=secret,id=github_token \
     export GITHUB_TOKEN="$(cat /run/secrets/github_token 2>/dev/null || true)" \
     && mise install -E verus rust \
     && mkdir -p /opt/verus \
-    && curl -fL "https://github.com/verus-lang/verus/releases/download/${VERUS_RELEASE}/verus-${VERUS_RELEASE#release/}-x86-linux.zip" -o /tmp/verus.zip \
+    && curl -fL "https://github.com/verus-lang/verus/releases/download/${VERUS_RELEASE}/verus-${VERUS_RELEASE##*/}-x86-linux.zip" -o /tmp/verus.zip \
     && unzip -q /tmp/verus.zip -d /opt/verus \
     && ln -sf /opt/verus/verus-x86-linux/verus /usr/local/bin/verus \
     && ln -sf /opt/verus/verus-x86-linux/cargo-verus /usr/local/bin/cargo-verus \

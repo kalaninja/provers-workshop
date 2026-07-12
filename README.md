@@ -38,7 +38,7 @@ identical contracts.
 | --- | --- | --- | --- |
 | 1 | [Creusot](https://github.com/creusot-rs/creusot) | deductive, translated to Why3 + SMT (alt-ergo / z3 / cvc5) | wired up |
 | 2 | [Kani](https://github.com/model-checking/kani) | bounded model checking (CBMC) | wired up |
-| 3 | [Verus](https://github.com/verus-lang/verus) | SMT over a verification dialect of Rust | queued |
+| 3 | [Verus](https://github.com/verus-lang/verus) | SMT over a verification dialect of Rust | wired up |
 | 4 | [Flux](https://github.com/flux-rs/flux) | refinement (liquid) types | queued |
 | 5 | [Aeneas](https://github.com/AeneasVerif/aeneas) | functional translation to Lean | queued |
 | 6 | [hax](https://github.com/cryspen/hax) | translation to F* / Rocq / Lean | queued |
