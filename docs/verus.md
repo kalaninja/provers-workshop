@@ -117,6 +117,23 @@ and no positivity axiom of its own. What vstd leaves unspecced on `NonZero` -
   re-verified from scratch each run. Fewer moving parts and a lighter image, at
   the cost of a single solver (hence the manual nonlinear hint above) and no
   replayable artifact.
+- **Failed proofs debug in-source, in rustc style.** Verus reports an unproved
+  or ill-formed obligation as a compiler diagnostic with a span into the Rust
+  source, often with an actionable fix - two live examples from wiring this
+  lane: the new `&mut` model rejected a bare `*event` post-state with
+  "disambiguate by wrapping it in either `old` or `final`" plus a link to the
+  migration doc, and an unregistered foreign type came back with the exact
+  `pub struct ExAddress(pinocchio::Address);` declaration to paste. With
+  incremental re-verification in seconds, the whole diagnose-fix loop stays in
+  the editor. Creusot's failure mode for the same situation is an unproved VC
+  in a Why3 session, read as translated WhyML in the Why3 IDE - a second
+  language between the programmer and the goal (see
+  [creusot.md](creusot.md)). The trade runs the other way for editor tooling:
+  rustfmt does not reach inside `verus!{}`, so the lane pins `verusfmt` for the
+  macro interiors (`just verus fmt` / `fmt-check`, the latter in the pre-push
+  gate; `--verus-only`, nightly rustfmt keeps everything outside the blocks) -
+  and rust-analyzer support stays partial, while Creusot's exec code is plain
+  Rust that standard tooling fully understands.
 - **Spec layer erased by the macro, not cfg-gated.** Creusot/Kani gate spec
   material with `#[cfg_attr(prover, requires/ensures)]` attributes on plain-Rust
   cores. Verus inverts this: the cores are written in the Verus dialect (inside

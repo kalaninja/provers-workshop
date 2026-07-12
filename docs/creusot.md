@@ -2,7 +2,7 @@
 
 Lane 1 of [the prover roadmap](provers.md) - the baseline every later lane
 is compared against. Status: **wired up**. Facts are point-in-time; last
-reviewed 2026-07-08.
+reviewed 2026-07-12.
 
 [Creusot](https://github.com/creusot-rs/creusot) translates Rust carrying
 pearlite contracts into Why3; `why3find` discharges the verification
@@ -34,3 +34,14 @@ section.
   PartialEq>::eq` itself; see [verus.md](verus.md).)
 - Proof sessions replay deterministically: reviewable artifacts, no solver
   roulette in CI.
+- Debugging a failed proof happens outside the source. An unproved goal is not
+  a compiler diagnostic pointing at a Rust line - it is an unproved VC in a
+  Why3 session, and understanding it means opening the Why3 IDE
+  (`just creusot verify-ide`) and reading the goal as translated WhyML: a
+  second language and mental model between the programmer and the failure.
+  This is the flip side of the ensemble's automation - when the solvers close
+  a goal silently the pipeline is invisible, when they do not, the diagnosis
+  costs a context switch. The compensating ergonomic win: the exec code is
+  plain Rust, so rustfmt, clippy, and rust-analyzer work everywhere.
+  (Contrast: Verus reports the same failure as a rustc-style diagnostic with a
+  span into the source, often with a suggested fix; see [verus.md](verus.md).)
