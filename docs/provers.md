@@ -96,7 +96,7 @@ Columns fill in as lanes land.
 | Proof / replay speed | tbd (time `just creusot verify` / `replay`) | ~310s wall-clock from scratch (`-j` parallel harnesses; bounded by the dispatcher's ~300s, `purchase` ~210s, others 32-54s); no replay | fast (`11 verified` in seconds of solver time); re-verifies from scratch, no replay | - | - | - | - | - |
 | Artifact story | 23 `proof.json` sessions under `verif/`, deterministic replay in pre-push | none committed - re-verifies from scratch every run | none committed - re-verifies from scratch (fast SMT queries) | - | - | - | - | - |
 | Code bending | none in core bodies; extension-trait plumbing for foreign impls | cores call std directly (no axiom shims); predicates are `#[cfg(kani)]` bool fns on hand-written `*Ops` traits; PODs built field-by-field | low - the cores are written inside `verus!{}` and the proc-macro erases the ghost layer outside `cargo verus`, so the same source builds host+SBF like the siblings; residual bending is free `fn`s instead of `*Ops` traits, one `by (nonlinear_arith)` hint, and the verify recipe forcing `--cfg feature="nonzero_internals"` (vstd ships its `NonZero` model behind an undeclared feature) | - | - | - | - | - |
-| Toolchain fit | own nightly (2026-04-21) + opam-built Why3/solvers; the heaviest image | self-contained bundle (kani-verifier 0.67.0 + CBMC/kissat) via `cargo kani setup`; light image | release bundle (verus `0.2026.07.12` rolling + bundled Z3 4.12.5) over a pinned stable 1.96.0 rustup toolchain, download-and-extract; needs glibc >= 2.39 so its base is trixie not the shared bookworm; `vstd` pinned from crates.io (newest, `2026-07-12`); no stable release newer than 07-05 yet, re-pin when one lands | - | - | - | - | - |
+| Toolchain fit | own nightly (2026-04-21) + opam-built Why3/solvers; the heaviest image | self-contained bundle: kani-verifier 0.67.0 (mise cargo backend) + CBMC/kissat via `cargo kani setup`; light image | release bundle (verus `0.2026.07.12` rolling + bundled Z3 4.12.5, mise github backend) over a pinned stable 1.96.0 rustup toolchain; needs glibc >= 2.39 so its base is trixie not the shared bookworm; `vstd` pinned from crates.io (newest, `2026-07-12`); no stable release newer than 07-05 yet, re-pin when one lands | - | - | - | - | - |
 | Maintenance | active, research-led (v0.12.0 pinned) | active (AWS); drives the std verification campaign | active, research-led (weekly releases; drives a Rust std-verification effort) | - | - | - | - | - |
 
 ## Prover notes
@@ -147,9 +147,10 @@ cores + domain contracts verify (`11 verified, 0 errors`). Full report:
 Creusot/Kani template:
 
 - **Not self-contained.** Verus is a rustc driver whose release bundle pins a
-  stable rustc (1.96.0) but does *not* ship it: the stage installs that
-  toolchain with `rustc-dev`/`rust-src`/`llvm-tools` (like Creusot) and layers
-  the bundle (verus + cargo-verus + bundled Z3 4.12.5) on top.
+  stable rustc (1.96.0) but does *not* ship it: mise provisions that
+  toolchain with `rustc-dev`/`rust-src`/`llvm-tools` (like Creusot) and
+  installs the bundle (verus + cargo-verus + bundled Z3 4.12.5) on top via its
+  github backend.
 - **Newer glibc than the shared base.** The release binaries need glibc >= 2.39,
   and the workshop's `debian:bookworm-slim` base ships 2.36. Only this stage's
   base is overridden (to `debian:trixie-slim`, glibc 2.41) via a

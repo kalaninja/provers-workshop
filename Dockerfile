@@ -39,9 +39,13 @@ WORKDIR /workspace
 
 COPY mise/config.toml ./mise/config.toml
 
+# mise itself is pinned: it is the tool that pins every other tool, so an unpinned installer would
+# be the one unreproducible link in the chain.
+ARG MISE_VERSION=v2026.7.5
+
 RUN --mount=type=secret,id=github_token \
     export GITHUB_TOKEN="$(cat /run/secrets/github_token 2>/dev/null || true)" \
-    && curl -fsSL https://mise.run | MISE_INSTALL_PATH=/usr/local/bin/mise sh \
+    && curl -fsSL https://mise.run | MISE_VERSION="${MISE_VERSION}" MISE_INSTALL_PATH=/usr/local/bin/mise sh \
     && mise --version \
     && mkdir -p /opt/cargo /workspace/.cache/cargo/git /workspace/.cache/cargo/registry \
     && ln -sf /workspace/.cache/cargo/git /opt/cargo/git \
@@ -141,21 +145,20 @@ COPY mise/config.kani.toml ./mise/config.kani.toml
 # MISE_ENV=kani. Setup symlinks the toolchain into /opt/rustup (RUSTUP_HOME), baked here too.
 ENV KANI_HOME=/opt/kani
 
-# mise installs the wrapper stable rust and provisions rustup (RUSTUP_HOME=/opt/rustup);
+# mise installs the wrapper stable rust and kani-verifier (cargo backend; rust goes first so the
+# backend has a cargo to build with) and provisions rustup (RUSTUP_HOME=/opt/rustup);
 # `cargo kani setup` shells out to rustup to install its nightly, then curls its release
 # bundle (curl + tar are in tooling-base). The prebuilt CBMC binaries only need libstdc++
 # (from build-essential) and the glibc loader, so no extra apt packages are required.
 RUN --mount=type=secret,id=github_token \
     export GITHUB_TOKEN="$(cat /run/secrets/github_token 2>/dev/null || true)" \
     && mise install -E kani rust \
-    && MISE_ENV=kani mise exec rust -- cargo install --locked --version 0.67.0 kani-verifier \
-    && ln -sf /opt/cargo/bin/cargo-kani /usr/local/bin/cargo-kani \
-    && ln -sf /opt/cargo/bin/kani /usr/local/bin/kani \
-    && PATH="/opt/cargo/bin:${PATH}" MISE_ENV=kani mise exec rust -- cargo kani setup \
+    && mise install -E kani "cargo:kani-verifier" \
+    && MISE_ENV=kani mise exec -- cargo kani setup \
     && chmod -R a+rwX /opt/kani /opt/cargo /opt/mise /opt/rustup
 
 # Cheap self-test in a separate layer so the expensive setup above stays cached.
-RUN command -v cargo-kani
+RUN MISE_ENV=kani mise exec -- cargo kani --version
 
 FROM tooling-base AS verus-tooling
 
@@ -163,35 +166,17 @@ FROM tooling-base AS verus-tooling
 # above): the verus/cargo-verus release binaries need glibc >= 2.39 and bookworm ships 2.36. (2)
 # This lane needs a real rustup toolchain: Verus is a rustc driver (rust_verify dynamically links
 # 1.96.0 with rustc-dev/rust-src/llvm-tools, and the launcher resolves it via rustup).
-# mise/config.verus.toml provisions that toolchain; the release bundle (verus + cargo-verus + bundled Z3 +
-# precompiled vstd) is downloaded and PATH'd on top.
+# mise/config.verus.toml provisions that toolchain plus the release bundle (verus + cargo-verus +
+# bundled Z3 + precompiled vstd, github backend) and verusfmt (ubi backend).
 COPY mise/config.verus.toml ./mise/config.verus.toml
-
-ENV VERUS_HOME=/opt/verus
-# Rolling releases; pin the exact tag for reproducibility. The bundle carries Z3 4.12.5 + vstd.
-# No stable release newer than 0.2026.07.05 exists yet; re-pin to the next stable when it lands.
-ARG VERUS_RELEASE=release/rolling/0.2026.07.12.0b42f4c
 
 RUN --mount=type=secret,id=github_token \
     export GITHUB_TOKEN="$(cat /run/secrets/github_token 2>/dev/null || true)" \
-    && mise install -E verus rust \
-    && mkdir -p /opt/verus \
-    && curl -fL "https://github.com/verus-lang/verus/releases/download/${VERUS_RELEASE}/verus-${VERUS_RELEASE##*/}-x86-linux.zip" -o /tmp/verus.zip \
-    && unzip -q /tmp/verus.zip -d /opt/verus \
-    && ln -sf /opt/verus/verus-x86-linux/verus /usr/local/bin/verus \
-    && ln -sf /opt/verus/verus-x86-linux/cargo-verus /usr/local/bin/cargo-verus \
-    && rm -f /tmp/verus.zip \
-    && chmod -R a+rwX /opt/verus /opt/cargo /opt/mise /opt/rustup
+    && mise install -E verus rust "ubi:verus-lang/verusfmt" "github:verus-lang/verus" \
+    && chmod -R a+rwX /opt/cargo /opt/mise /opt/rustup
 
-# Pinned verusfmt: formats inside `verus!{}` blocks, which rustfmt cannot reach. Separate layer so
-# the expensive Verus download above stays cached. Extraction is layout-agnostic on purpose (the
-# cargo-dist tarball nests the binary in a per-target directory).
-ARG VERUSFMT_VERSION=v0.7.2
-RUN curl -fL "https://github.com/verus-lang/verusfmt/releases/download/${VERUSFMT_VERSION}/verusfmt-x86_64-unknown-linux-gnu.tar.xz" -o /tmp/verusfmt.tar.xz \
-    && mkdir -p /tmp/verusfmt \
-    && tar -xJf /tmp/verusfmt.tar.xz -C /tmp/verusfmt \
-    && install -m 0755 "$(find /tmp/verusfmt -type f -name verusfmt)" /usr/local/bin/verusfmt \
-    && rm -rf /tmp/verusfmt /tmp/verusfmt.tar.xz
-
-# Cheap self-test in a separate layer so the expensive downloads above stay cached.
-RUN command -v cargo-verus && command -v verus && verusfmt --version
+# Cheap self-test in a separate layer so the expensive downloads above stay cached. `verus
+# --version` (not `cargo verus --version`: the pinned rolling cargo-verus takes no such flag).
+RUN MISE_ENV=verus mise exec -- verus --version \
+    && MISE_ENV=verus mise exec -- sh -c 'command -v cargo-verus' \
+    && MISE_ENV=verus mise exec -- verusfmt --version

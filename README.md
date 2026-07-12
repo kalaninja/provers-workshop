@@ -72,8 +72,12 @@ Three instructions over two PDA-backed accounts:
 - [`just`](https://github.com/casey/just)
 
 Everything else - Rust (stable + two pinned nightlies), the Agave/SBF
-toolchain, node/pnpm for codegen, Creusot/Why3/SMT solvers - lives in the
-tooling images built from the repo's `Dockerfile` and pinned by `mise*.toml`.
+toolchain, node/pnpm for codegen, the verifiers and their solvers - lives in
+the tooling images built from the repo's `Dockerfile`. Every tool mise has a
+backend for is pinned in `mise*.toml` (toolchains, Agave, kani-verifier, the
+Verus bundle, verusfmt); the `Dockerfile` owns the rest (apt packages, the
+pinned mise itself, Creusot's opam build, Kani's setup bundle, SBF
+platform-tools).
 Images build on demand the first time a recipe needs them; the Creusot image
 is the slow one (it compiles Why3 and the provers through opam - expect tens
 of minutes once).

@@ -2,5 +2,19 @@
 # (like Creusot): rust_verify dynamically links the toolchain, so it needs rustc-dev + rust-src +
 # llvm-tools present, and the `verus` launcher resolves it through rustup. The release pins stable
 # 1.96.0 (version.json in the release zip); Verus bundles its own Z3, so no solver pin here.
+# verusfmt formats inside `verus!{}` blocks (rustfmt cannot reach them); single-binary release,
+# hence the ubi backend.
 [tools]
 rust = { version = "1.96.0", profile = "minimal", components = "rustc-dev,rust-src,llvm-tools" }
+"ubi:verus-lang/verusfmt" = "0.7.2"
+
+# The Verus release bundle: verus + cargo-verus + bundled Z3 + precompiled vstd. Rolling release -
+# the tag lives under `release/rolling/`, hence version_prefix; re-pin to the next stable when it
+# lands. The zip's single root dir is auto-stripped, so the launcher finds its bundled Z3/vstd
+# next to the binaries.
+[tools."github:verus-lang/verus"]
+version = "0.2026.07.12.0b42f4c"
+version_prefix = "release/rolling/"
+
+[tools."github:verus-lang/verus".platforms]
+linux-x64 = { asset_pattern = "verus-*-x86-linux.zip" }

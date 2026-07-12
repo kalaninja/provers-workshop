@@ -25,7 +25,7 @@ Creusot clauses) checked by `#[kani::proof_for_contract]` harnesses under
 `-Z function-contracts` (kept on the CLI: cargo-kani can default flags only
 from the workspace-root manifest, not per crate); each harness ends in
 `kani::cover!` reachability checks on the interesting outcomes. Built via a
-`kani-tooling` Docker stage (`cargo install kani-verifier` 0.67.0 +
+`kani-tooling` Docker stage (kani-verifier 0.67.0 via mise's cargo backend +
 `cargo kani setup`); `just kani verify` runs the four harnesses in parallel
 (`-j`) and passes them all (0 failures, all covers satisfied). The fourth is a
 plain `#[kani::proof]` over the dispatcher byte front: every payload up to one

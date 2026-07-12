@@ -2,9 +2,10 @@ import 'common.just'
 
 mod tooling
 
-# Show the pinned Verus version (diagnostic).
+# Show the pinned Verus version (diagnostic). `verus --version`, not `cargo verus --version`:
+# the pinned rolling cargo-verus takes no such flag.
 version: tooling::build-verus
-    MISE_ENV=verus ./scripts/docker/run-tooling.sh {{ verus_tooling_image }} cargo verus --version
+    MISE_ENV=verus ./scripts/docker/run-tooling.sh {{ verus_tooling_image }} verus --version
 
 # Format the Verus lane with pinned verusfmt - it formats inside `verus!{}` blocks, which rustfmt
 # cannot reach. `--verus-only` leaves code outside the macros to `just rust fmt`: the repo's

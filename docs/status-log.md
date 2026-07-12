@@ -7,9 +7,19 @@ lane and what it taught, newest first.
   `release/rolling/0.2026.07.12.0b42f4c` + matching crates.io `vstd`
   `2026-07-12`, staying on stable rustc 1.96.0; `just verus verify` still
   `11 verified, 0 errors`. No *stable* release newer than 07-05 exists yet, so
-  this is the rolling build - re-pin to the next stable when it lands. The
-  `Dockerfile` release-asset derivation was generalized (`${VERUS_RELEASE##*/}`)
-  to handle the extra `rolling/` path segment. `NonZero` payoff: the `07-12`
+  this is the rolling build - re-pin to the next stable when it lands. Tooling
+  then consolidated on mise wherever a backend exists: the Verus bundle installs
+  through mise's github backend (`version_prefix = "release/rolling/"` absorbs
+  the tag's extra path segment; the zip's single root dir is auto-stripped, so
+  the launcher still finds its bundled Z3/vstd next to the binaries), verusfmt
+  through ubi, kani-verifier 0.67.0 through the cargo backend, and mise itself
+  is pinned (`v2026.7.5`) instead of tracking whatever mise.run serves - the
+  curl/unzip layers and `/usr/local/bin` symlinks are gone. Still
+  Dockerfile-owned, since no backend can express them: apt packages, Creusot's
+  opam build, Kani's `cargo kani setup` bundle, the SBF platform-tools.
+  Casualty found on the way: the rolling `cargo-verus` no longer accepts
+  `--version`, so `just verus version` (and the image self-test) now run
+  `verus --version`. `NonZero` payoff: the `07-12`
   `vstd` ships `std_specs/nonzero.rs`, but gates it behind an **undeclared**
   `nonzero_internals` Cargo feature, so it cannot be enabled from a dependency
   (`cargo` rejects `features = ["nonzero_internals"]`). The verify recipe now
