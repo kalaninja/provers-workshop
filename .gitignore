@@ -6,6 +6,11 @@
 /verif/**/*.coma
 /.why3find/
 
+# Aeneas: track the Lean proof project (lakefile, generated Lean, hand proofs, lake-manifest) for
+# `just aeneas replay`; ignore Lake's build output and its package cache (symlinked to the image's
+# baked Aeneas + mathlib build at run time).
+/verif/**/.lake/
+
 # Local tool caches (populated by run-tooling.sh volume mounts)
 /.cache/
 

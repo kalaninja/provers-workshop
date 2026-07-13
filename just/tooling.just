@@ -44,3 +44,8 @@ build-verus: (_build "verus-tooling" verus_tooling_image "--build-arg TOOLING_BA
 # over the pinned nightly-2025-11-25 toolchain). Overrides the base to trixie: the prebuilt Z3
 # release asset needs glibc >= 2.39 (bookworm has 2.36).
 build-flux: (_build "flux-tooling" flux_tooling_image "--build-arg TOOLING_BASE_IMAGE=debian:trixie-slim")
+
+# Build the Aeneas interactive-proof tooling image (Charon + Aeneas built from source via opam, plus
+# a Lean/elan toolchain and the mathlib-backed Aeneas Lean library). The heaviest lane; stays on
+# bookworm (Lean/elan and the rustup nightly support glibc 2.36).
+build-aeneas: (_build "aeneas-tooling" aeneas_tooling_image)

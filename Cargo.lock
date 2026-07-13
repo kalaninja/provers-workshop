@@ -5134,6 +5134,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "ticketing-aeneas"
+version = "0.1.0"
+
+[[package]]
 name = "ticketing-client"
 version = "0.1.0"
 dependencies = [

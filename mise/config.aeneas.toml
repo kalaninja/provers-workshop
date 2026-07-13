@@ -1,0 +1,18 @@
+# Toolchain for the Aeneas lane, selected with MISE_ENV=aeneas. Aeneas extracts Rust through Charon
+# (a custom rustc driver) into an LLBC model, then translates it to Lean for interactive proof. Two
+# tools mise can pin here; the OCaml-built Charon/Aeneas binaries themselves live in the Dockerfile
+# (no release, crates.io crate, or rustup component - a from-source build like Creusot's opam build).
+#
+# (1) Charon's pinned nightly. Charon is a rustc driver, so it needs rustc-dev + rust-src +
+# llvm-tools (+ miri, in its own toolchain file); it pins but does not ship the toolchain, resolving
+# it through rustup at build time. Mirror charon/rust-toolchain when upgrading - and note the Charon
+# commit is dictated by Aeneas's charon-pin, not chosen independently.
+[tools]
+rust = { version = "nightly-2026-06-01", profile = "minimal", components = "rustc-dev,rust-src,llvm-tools,miri,rustfmt" }
+
+# (2) elan, the rustup-analog that manages Lean toolchains. It reads the lean-toolchain file
+# (leanprover/lean4:v4.31.0) shipped by Aeneas's backends/lean and by verif/ticketing_aeneas, and
+# provides the lean/lake proxies. elan is a released binary, so mise pins it via the ubi backend; the
+# Lean toolchain itself is fetched by elan under ELAN_HOME (baked to /opt/aeneas/elan in the image).
+[tools."ubi:leanprover/elan"]
+version = "4.2.3"

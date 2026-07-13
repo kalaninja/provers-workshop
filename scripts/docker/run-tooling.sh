@@ -50,6 +50,22 @@ if [[ "${MISE_ENV:-}" == "flux" ]]; then
   extra_env+=(--env "FLUX_SYSROOT=/opt/flux")
 fi
 
+# Aeneas bakes its opam switch, Charon/Aeneas binaries, and elan-managed Lean toolchain (with the
+# built Aeneas + mathlib Lean packages) under /opt/aeneas (aeneas-tooling stage); point HOME/XDG/
+# OPAMROOT/ELAN_HOME there so opam, dune, and lean/lake resolve despite the per-run HOME/XDG rewrite.
+# Charon's pinned nightly resolves via RUSTUP_HOME=/opt/rustup; charon/aeneas/lean/lake are on PATH
+# from /usr/local/bin.
+if [[ "${MISE_ENV:-}" == "aeneas" ]]; then
+  home_dir="/opt/aeneas/home"
+  xdg_cache_home="/opt/aeneas/cache"
+  xdg_config_home="/opt/aeneas/config"
+  xdg_data_home="/opt/aeneas/data"
+  extra_env+=(
+    --env "OPAMROOT=/opt/aeneas/opam"
+    --env "ELAN_HOME=/opt/aeneas/elan"
+  )
+fi
+
 mkdir -p \
   "${host_cache_root}/cargo/git" \
   "${host_cache_root}/cargo/registry" \

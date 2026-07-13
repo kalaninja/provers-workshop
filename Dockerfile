@@ -225,3 +225,108 @@ RUN --mount=type=secret,id=github_token \
 RUN command -v cargo-flux && command -v flux \
     && MISE_ENV=flux mise exec -- sh -c 'command -v z3 && command -v fixpoint' \
     && MISE_ENV=flux mise exec -- rustup which --toolchain nightly-2025-11-25 cargo
+
+FROM tooling-base AS aeneas-tooling
+
+# The heaviest lane, and the most structurally different: Aeneas does not check Rust in place. Charon
+# (a rustc driver) extracts the crate to an LLBC model, Aeneas translates that to Lean, and the
+# proofs are hand-written Lean checked with Lean. So this stage bakes three toolchains: an
+# OCaml/opam environment (Charon-ML + Aeneas are OCaml, like Creusot's Why3), the Charon+Aeneas
+# binaries built from source at Aeneas's pinned commits (no release/crate/rustup component exists),
+# and a Lean toolchain via elan whose Aeneas base library pulls in mathlib. Everything mise CAN pin
+# it does in mise/config.aeneas.toml (Charon's nightly + elan); the from-source builds live here.
+#
+# Baked under a fixed /opt/aeneas that run-tooling.sh points HOME/XDG/OPAMROOT/ELAN_HOME at when
+# MISE_ENV=aeneas, mirroring the Creusot stage's opam plumbing.
+COPY mise/config.aeneas.toml ./mise/config.aeneas.toml
+
+ENV XDG_DATA_HOME=/opt/aeneas/data
+ENV XDG_CONFIG_HOME=/opt/aeneas/config
+ENV XDG_CACHE_HOME=/opt/aeneas/cache
+ENV OPAMROOT=/opt/aeneas/opam
+ENV ELAN_HOME=/opt/aeneas/elan
+ENV PATH=/opt/aeneas/elan/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# Let opam auto-install system depexts non-interactively via apt.
+ENV OPAMYES=1
+ENV OPAMCONFIRMLEVEL=unsafe-yes
+
+# Aeneas has no semantic releases (only dated nightly-* tags); pin its HEAD commit. Charon's commit
+# is not chosen here - it is whatever Aeneas's charon-pin names (kept in sync; re-check on bump).
+ARG AENEAS_REV=d71d2e3f2cb763f7faf15ab606ac9cf32da8dead
+ARG CHARON_REV=5a5017333554ec1e95cae3c4fe05f5bd90b44487
+
+# (1) apt (OCaml build deps, same family as Creusot) + mise tools (Charon's nightly toolchain + elan)
+# + an opam switch. apt lists are kept through the opam package install below so opam depext can pull
+# system libraries, then removed. opam 5.3.0 is the switch Aeneas develops against.
+RUN --mount=type=secret,id=github_token \
+    export GITHUB_TOKEN="$(cat /run/secrets/github_token 2>/dev/null || true)" \
+    && apt-get update \
+    && apt-get install --yes --no-install-recommends \
+        autoconf \
+        libgmp-dev \
+        m4 \
+        opam \
+        pkg-config \
+        rsync \
+        zlib1g-dev \
+    && mise install -E aeneas rust "ubi:leanprover/elan" \
+    && opam init --bare --disable-sandboxing --yes \
+    && opam switch create 5.3.0 \
+    && chmod -R a+rwX /opt/cargo /opt/mise /opt/rustup /opt/aeneas
+
+# (2) opam packages Aeneas (and Charon-ML) build against. Its own layer so this expensive OCaml
+# compile stays cached across iterations of the Charon/Aeneas/Lean builds below. List mirrors
+# Aeneas's README setup command; `core` covers `core_unix`.
+RUN opam install --switch=5.3.0 --yes \
+        calendar core core_unix domainslib easy_logging menhir ocamlformat.0.27.0 \
+        ocamlgraph odoc ppx_deriving ppx_deriving_yojson progress unionFind visitors yojson zarith \
+    && rm -rf /var/lib/apt/lists/* \
+    && chmod -R a+rwX /opt/aeneas
+
+# (3) Build Charon then Aeneas from source. Charon is cloned into aeneas/charon at the charon-pin
+# commit (Aeneas's check-charon expects it there); `make build` compiles the release Charon binaries
+# (cargo under Charon's rustup-pinned nightly) and Charon-ML (dune under the opam switch). Aeneas's
+# `make` then builds bin/aeneas. Both run with the opam env active AND the mise nightly on PATH.
+RUN --mount=type=secret,id=github_token \
+    export GITHUB_TOKEN="$(cat /run/secrets/github_token 2>/dev/null || true)" \
+    && git clone https://github.com/AeneasVerif/aeneas /opt/aeneas/src \
+    && (cd /opt/aeneas/src && git checkout "${AENEAS_REV}") \
+    && git clone https://github.com/AeneasVerif/charon /opt/aeneas/src/charon \
+    && (cd /opt/aeneas/src/charon && git checkout "${CHARON_REV}") \
+    && MISE_ENV=aeneas mise exec rust -- bash -c 'eval "$(opam env --switch=5.3.0)" \
+        && cd /opt/aeneas/src/charon && make build \
+        && cd /opt/aeneas/src && make' \
+    && ln -sf /opt/aeneas/src/bin/aeneas /usr/local/bin/aeneas \
+    && ln -sf /opt/aeneas/src/charon/bin/charon /usr/local/bin/charon \
+    && ln -sf /opt/aeneas/src/charon/bin/charon-driver /usr/local/bin/charon-driver \
+    && chmod -R a+rwX /opt/aeneas /opt/cargo /opt/rustup
+
+# (4) Lean toolchain + the Aeneas Lean base library. elan (installed as a bare binary via the mise
+# ubi backend, so it never sets up the lean/lake proxy shims) fetches the toolchain named in
+# backends/lean/lean-toolchain (leanprover/lean4:v4.31.0) into ELAN_HOME. We then link lean/lake/leanc
+# straight to that toolchain's real binaries on PATH - they locate their own sysroot from their real
+# path, so no elan proxy is needed at run time. `lake exe cache get` downloads mathlib's prebuilt
+# oleans (the library `require`s mathlib, and compiling it from source would take hours); `lake build`
+# then builds the Aeneas library. Its packages stay under /opt/aeneas/src so verif/ticketing_aeneas
+# can reuse them at verify/replay time.
+ARG LEAN_TOOLCHAIN=leanprover/lean4:v4.31.0
+RUN --mount=type=secret,id=github_token \
+    export GITHUB_TOKEN="$(cat /run/secrets/github_token 2>/dev/null || true)" \
+    && MISE_ENV=aeneas mise exec -- elan toolchain install "${LEAN_TOOLCHAIN}" \
+    && tc="$(ls -d /opt/aeneas/elan/toolchains/*/ | head -n1)" \
+    && for b in lean lake leanc; do ln -sf "${tc}bin/${b}" "/usr/local/bin/${b}"; done \
+    && lean --version
+
+# Fetch mathlib's prebuilt oleans and build the Aeneas Lean library, in its own layer so re-running it
+# does not re-download the Lean toolchain above.
+RUN --mount=type=secret,id=github_token \
+    export GITHUB_TOKEN="$(cat /run/secrets/github_token 2>/dev/null || true)" \
+    && MISE_ENV=aeneas mise exec -- bash -c 'cd /opt/aeneas/src/backends/lean \
+        && lake exe cache get \
+        && lake build' \
+    && chmod -R a+rwX /opt/aeneas
+
+# Cheap self-test in a separate layer so the expensive builds above stay cached.
+RUN command -v charon && command -v charon-driver && command -v aeneas \
+    && aeneas --help >/dev/null \
+    && ELAN_HOME=/opt/aeneas/elan lean --version

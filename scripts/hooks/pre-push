@@ -44,12 +44,14 @@ creusot_changed=false
 kani_changed=false
 verus_changed=false
 flux_changed=false
+aeneas_changed=false
 
 has '^(crates/|clients/|idl/|Cargo\.toml|Cargo\.lock|rustfmt\.toml|clippy\.toml|mise/config(\.[a-z]+)?\.toml|Dockerfile)' && rust_changed=true
 has '^(crates/ticketing/|mise/config\.creusot\.toml|just/creusot\.just|why3find\.json|verif/|Dockerfile)' && creusot_changed=true
 has '^(crates/ticketing/kani/|mise/config\.kani\.toml|just/kani\.just)' && kani_changed=true
 has '^(crates/ticketing/verus/|mise/config\.verus\.toml|just/verus\.just)' && verus_changed=true
 has '^(crates/ticketing/flux/|mise/config\.flux\.toml|just/flux\.just)' && flux_changed=true
+has '^(crates/ticketing/aeneas/|mise/config\.aeneas\.toml|just/aeneas\.just|scripts/aeneas/|verif/ticketing_aeneas/)' && aeneas_changed=true
 
 if $rust_changed; then
   run just rust fmt-check
@@ -74,6 +76,10 @@ fi
 
 if $flux_changed; then
   run just flux verify
+fi
+
+if $aeneas_changed; then
+  run just aeneas replay
 fi
 
 printf '\npre-push: all checks passed\n'

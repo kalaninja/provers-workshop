@@ -3,6 +3,39 @@
 The dated chronology of [the prover roadmap](provers.md): what landed in each
 lane and what it taught, newest first.
 
+- **2026-07-13** - Aeneas lane scaffolded: `mise/config.aeneas.toml`
+  (Charon's nightly-2026-06-01 + rustc-dev/rust-src/llvm-tools/miri, plus elan via
+  the ubi backend), an `aeneas-tooling` Docker stage that builds Charon and Aeneas
+  from source through opam (OCaml 5.3.0, like Creusot's Why3 build) at Aeneas's
+  pinned commit (`d71d2e3`; Charon's `5a50173` is dictated by Aeneas's `charon-pin`,
+  not chosen) and installs a Lean toolchain (`v4.31.0`) via elan whose Aeneas base
+  library pulls in mathlib (fetched as a prebuilt cache with `lake exe cache get`,
+  not compiled), a `just aeneas` (`version`/`verify`/`replay`) module driving a
+  `scripts/aeneas/` pipeline, an `aeneas` HOME/XDG/OPAM/ELAN branch in
+  run-tooling.sh, a pre-push glob, a `ticketing-aeneas` skeleton, and a
+  `verif/ticketing_aeneas` Lean project whose one smoke proof checks under `lake
+  build` (widening the body or tightening the Lean bound breaks it, so it is not
+  vacuous). Cores/proofs pending. Template deviations surfaced up front, and they
+  run deeper than any prior lane's: (1) **no in-Rust verification surface at all** -
+  Aeneas proves from the outside (Charon extracts to LLBC, Aeneas translates to
+  Lean, proofs are hand-written Lean), so unlike every SMT lane there is no spec to
+  strip, no `cfg(aeneas)` in check-cfg, no verifier dependency, and the root
+  `Cargo.toml` needs no edit; the crate is plain Rust on host and SBF alike. (2)
+  **The best artifact story of the roster** - committed Lean, deterministically
+  re-checked - so this is the first lane since Creusot to split `verify`
+  (regenerate the Lean via Charon+Aeneas) from a cheap `replay` (re-check the
+  committed Lean), the pre-push gate. The re-check compiles with `lean` against
+  the image's prebuilt oleans rather than `lake build`, which re-resolves and
+  re-clones mathlib from the network every run (`scripts/aeneas/lean-check.sh`
+  points `LEAN_PATH` at the baked Aeneas + mathlib build - hermetic). (3) **The heaviest image** - opam-built
+  Charon+Aeneas (Creusot-class weight) *plus* a Lean/elan toolchain and mathlib -
+  and the pipeline is multi-step (`charon` -> `aeneas` -> `lake`), not a single
+  `cargo <tool>`, so it lives in `scripts/aeneas/` rather than an inline recipe.
+  Stays on bookworm (Lean/elan and the rustup nightly support glibc 2.36 - unlike
+  Verus/Flux). Deferred to wire-up: porting the cores + hand-writing the real Lean
+  proofs, the full-graph Charon extraction spike (does pinocchio/bytemuck extract or
+  fall back to opaque - the roadmap's flagged risk), the `ticketing_aeneas.so` SBF
+  build, and the full `docs/aeneas.md` report.
 - **2026-07-13** - Flux lane wired up as a full SBF program: trusted
   `instructions/` shells + dispatcher + `entrypoint!` + `cdylib` around the three
   verified `flows/` cores, behavior-identical to the other lanes. `just flux

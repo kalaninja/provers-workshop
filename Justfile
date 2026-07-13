@@ -16,6 +16,9 @@ mod verus 'just/verus.just'
 # Refinement (liquid) types commands (Flux)
 mod flux 'just/flux.just'
 
+# Interactive-proof (Charon -> Aeneas -> Lean) commands (Aeneas)
+mod aeneas 'just/aeneas.just'
+
 # Tooling commands
 mod tooling 'just/tooling.just'
 

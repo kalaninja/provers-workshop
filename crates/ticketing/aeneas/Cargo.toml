@@ -1,0 +1,20 @@
+[package]
+name = "ticketing-aeneas"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["lib"]
+
+[lints]
+workspace = true
+
+# No verification dependency, and no cfg/feature gate. Aeneas proves this crate from the OUTSIDE:
+# Charon extracts it to an LLBC model, Aeneas translates that to Lean, and the proofs are hand-written
+# Lean under verif/ticketing_aeneas - nothing in the Rust source. So, unlike every other lane, there
+# is no spec surface to strip, no `cfg(aeneas)` in the workspace check-cfg, and no attribute crate to
+# pull in: this compiles as ordinary Rust everywhere. Program cores + pinocchio/ticketing-interface +
+# the cdylib/entrypoint arrive with the port (next step).
+[dependencies]
