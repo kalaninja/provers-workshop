@@ -113,8 +113,8 @@ just init-hooks              # wire the repo-tracked pre-push hook into this clo
 
 ```
 mise/config.toml            tool pins (stable Rust, just, nextest, node, pnpm)
-mise/config.<env>.toml      per-lane overlays: nightly, solana, creusot, kani, verus (MISE_ENV=<env>)
-Dockerfile                  tooling stages: base / rust / node / solana / creusot / kani / verus
+mise/config.<env>.toml      per-lane overlays: nightly, solana, creusot, kani, verus, flux (MISE_ENV=<env>)
+Dockerfile                  tooling stages: base / rust / node / solana / creusot / kani / verus / flux
 scripts/docker/run-tooling.sh   docker-run wrapper every recipe goes through
 scripts/hooks/pre-push      change-scoped checks (rust lane, creusot replay)
 just/                       recipe modules (rust, solana, creusot, tooling)

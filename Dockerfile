@@ -180,3 +180,48 @@ RUN --mount=type=secret,id=github_token \
 RUN MISE_ENV=verus mise exec -- verus --version \
     && MISE_ENV=verus mise exec -- sh -c 'command -v cargo-verus' \
     && MISE_ENV=verus mise exec -- verusfmt --version
+
+FROM tooling-base AS flux-tooling
+
+# Two things this lane owns that mise cannot express, both here in the Dockerfile. (1) apt: libgmp10
+# for the (GHC-built) fixpoint binary and libgomp1 for Z3 - system libraries, not mise tools. (2)
+# Flux itself is BUILT FROM SOURCE: it has no release, crates.io crate, or rustup component, and its
+# install is a custom `cargo xtask install` (builds the flux-driver + precompiled spec libs, not a
+# plain `cargo install`), so - like Creusot's opam build and Kani's `cargo kani setup` - it cannot
+# ride a mise backend. Everything mise CAN pin, it does in mise/config.flux.toml: the nightly
+# toolchain and Flux's two prebuilt solver backends, Z3 and liquid-fixpoint.
+#
+# Like Creusot/Verus, Flux is a rustc driver that pins but does not ship its toolchain
+# (nightly-2025-11-25 with rustc-dev/rust-src/llvm-tools, resolved through rustup); cargo-flux shells
+# out to `rustup which --toolchain nightly-2025-11-25` at runtime. Z3's release asset is glibc-2.39,
+# so - like Verus - this stage overrides the base to trixie (bookworm ships 2.36). The flux sysroot
+# (flux-driver + precompiled flux_rs libs) lands at $HOME/.flux (xtask hardcodes it), so HOME is
+# redirected for the build and the result moved to the /opt/flux that run-tooling.sh points
+# FLUX_SYSROOT at.
+COPY mise/config.flux.toml ./mise/config.flux.toml
+
+ENV FLUX_SYSROOT=/opt/flux
+# No upstream tags/releases; pin by commit. Re-verify HEAD + its rust-toolchain.toml when bumping.
+ARG FLUX_REV=1d98676057a7839c6c468aa3dd556ab769a150fa
+
+RUN --mount=type=secret,id=github_token \
+    export GITHUB_TOKEN="$(cat /run/secrets/github_token 2>/dev/null || true)" \
+    && apt-get update \
+    && apt-get install --yes --no-install-recommends libgmp10 libgomp1 \
+    && rm -rf /var/lib/apt/lists/* \
+    && mise install -E flux rust "github:Z3Prover/z3" "github:ucsd-progsys/liquid-fixpoint" \
+    && git clone https://github.com/flux-rs/flux /tmp/flux \
+    && (cd /tmp/flux && git checkout "${FLUX_REV}") \
+    && HOME=/tmp/fluxhome MISE_ENV=flux mise exec -- bash -c 'cd /tmp/flux && cargo xtask install' \
+    && mv /tmp/fluxhome/.flux /opt/flux \
+    && ln -sf /opt/cargo/bin/cargo-flux /usr/local/bin/cargo-flux \
+    && ln -sf /opt/cargo/bin/flux /usr/local/bin/flux \
+    && rm -rf /tmp/flux /tmp/fluxhome \
+    && chmod -R a+rwX /opt/flux /opt/cargo /opt/mise /opt/rustup
+
+# Cheap self-test in a separate layer so the expensive build above stays cached. Confirms the
+# from-source binaries are on PATH, mise resolves both solvers, and the pinned nightly resolves
+# through rustup - what `cargo flux` shells out to at runtime to find the rustc the driver links.
+RUN command -v cargo-flux && command -v flux \
+    && MISE_ENV=flux mise exec -- sh -c 'command -v z3 && command -v fixpoint' \
+    && MISE_ENV=flux mise exec -- rustup which --toolchain nightly-2025-11-25 cargo

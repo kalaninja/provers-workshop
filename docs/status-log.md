@@ -3,6 +3,30 @@
 The dated chronology of [the prover roadmap](provers.md): what landed in each
 lane and what it taught, newest first.
 
+- **2026-07-13** - Flux lane scaffolded: `mise/config.flux.toml`
+  (nightly-2025-11-25 + rustc-dev/rust-src/llvm-tools/rustfmt/clippy), a
+  `flux-tooling` Docker stage that builds Flux from source at a pinned commit
+  (`1d98676`) - no release, crates.io crate, or rustup component exists - with
+  Z3 4.16 and liquid-fixpoint pinned via mise github backends, a `just flux`
+  (`version`/`verify`)
+  module, a `flux` sysroot branch in run-tooling.sh, a narrow pre-push glob,
+  `cfg(flux)` registered in check-cfg, and a `ticketing-flux` skeleton whose one
+  smoke `#[flux_rs::sig]` spec verifies (breaking the output index fails it, so it
+  is not vacuous). Cores/contracts pending. Template deviations surfaced up front:
+  (1) the verifier is built from source (custom `cargo xtask install`, not a mise
+  backend like kani/verus) - no versioned release exists, so it is pinned by
+  commit; (2) like Creusot/Verus it is a rustc driver that pins but does not ship
+  its nightly, resolved at runtime via `rustup which`; (3) its prebuilt Z3 asset
+  needs glibc >= 2.39, so this stage's base is trixie (2.41) like Verus while
+  every other lane stays on bookworm; (4) `cargo flux` DOES set `--cfg flux`
+  (unlike cargo-verus), so verification-only code is `#[cfg(flux)]`-gated as under
+  Kani, but `[target.'cfg(flux)'.dependencies]` does not activate under cargo-flux,
+  so the `flux-rs` attribute crate rides in as an unconditional dependency (its
+  attributes no-op outside verification) and the crate opts in via
+  `[package.metadata.flux] enabled = true`. liquid-fixpoint ships prebuilt binaries
+  only under a floating `nightly` tag - the one hermeticity wrinkle. The nonlinear
+  `capacity*price <= u64::MAX` - refinement types' known-fragile case - is the open
+  question deferred to wire-up.
 - **2026-07-12** - Verus toolchain bumped to the newest available build,
   `release/rolling/0.2026.07.12.0b42f4c` + matching crates.io `vstd`
   `2026-07-12`, staying on stable rustc 1.96.0; `just verus verify` still

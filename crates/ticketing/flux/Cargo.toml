@@ -1,0 +1,29 @@
+[package]
+name = "ticketing-flux"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["lib"]
+
+[lints]
+workspace = true
+
+# Flux's attribute crate (`flux_rs`), the one verification dependency. An ordinary, always-on dep:
+# its attributes strip to no-ops unless `cargo flux` is driving (it sets `FLUX_BUILD_SYSROOT`, which
+# flips `flux-attrs`' build.rs from `attr_dummy` to the real macros), so ordinary host and SBF builds
+# compile this crate as plain Rust with zero verification overhead. `#![no_std]`, safe for the SBF
+# target. Flux publishes no release, crates.io crate, or rustup component, so it is pinned by git rev
+# (the same rev is baked into the flux-tooling image). `cargo flux` sets `--cfg flux`, so
+# verification-only items are `#[cfg(flux)]`-gated (as under Kani), but the dependency itself must be
+# unconditional because `[target.'cfg(flux)'.dependencies]` does not activate under cargo-flux (cargo
+# probes `--print cfg` before the per-package flux profile sets the cfg). Program cores +
+# pinocchio/ticketing-interface + the cdylib/entrypoint arrive with the port (next step).
+[dependencies]
+flux-rs = { git = "https://github.com/flux-rs/flux", rev = "1d98676057a7839c6c468aa3dd556ab769a150fa" }
+
+# cargo-flux only verifies packages that opt in.
+[package.metadata.flux]
+enabled = true

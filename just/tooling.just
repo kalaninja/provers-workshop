@@ -39,3 +39,8 @@ build-kani: (_build "kani-tooling" kani_tooling_image)
 # Build the Verus tooling image (verus + cargo-verus + bundled Z3 over the pinned 1.96.0
 # toolchain). Overrides the base to trixie: the verus binaries need glibc >= 2.39 (bookworm has 2.36).
 build-verus: (_build "verus-tooling" verus_tooling_image "--build-arg TOOLING_BASE_IMAGE=debian:trixie-slim")
+
+# Build the Flux refinement-typing tooling image (flux built from source + liquid-fixpoint + Z3
+# over the pinned nightly-2025-11-25 toolchain). Overrides the base to trixie: the prebuilt Z3
+# release asset needs glibc >= 2.39 (bookworm has 2.36).
+build-flux: (_build "flux-tooling" flux_tooling_image "--build-arg TOOLING_BASE_IMAGE=debian:trixie-slim")

@@ -1,0 +1,27 @@
+# Wrapper toolchain for the Flux lane, selected with MISE_ENV=flux. Flux is a rustc driver whose
+# custom `cargo xtask install` (flux-driver + precompiled spec libs, not a plain `cargo install`)
+# cannot ride a mise backend, so the from-source build lives in the Dockerfile; everything mise CAN
+# pin, it does here. Like Creusot/Verus, Flux pins but does not ship its nightly (rustc-dev/rust-src/
+# llvm-tools, resolved through rustup) - mirror Flux's own rust-toolchain.toml when upgrading it.
+[tools]
+rust = { version = "nightly-2025-11-25", profile = "minimal", components = "rustc-dev,rust-src,llvm-tools,rustfmt,clippy" }
+
+# Z3, Flux's SMT solver. The linux release binary is nested under a versioned dir (`<v>/bin/z3`), so
+# bin_path carries the full version+platform string - bump it together with `version` when
+# re-pinning. The glibc-2.39 asset is why this lane's Docker base is trixie (bookworm ships 2.36).
+[tools."github:Z3Prover/z3"]
+version = "4.16.0"
+version_prefix = "z3-"
+bin_path = "z3-4.16.0-x64-glibc-2.39/bin"
+
+[tools."github:Z3Prover/z3".platforms]
+linux-x64 = { asset_pattern = "z3-*-x64-glibc-2.39.zip" }
+
+# liquid-fixpoint, Flux's Horn-clause solver. Prebuilt binaries ship only under the mutable `nightly`
+# tag (the versioned releases carry no assets), so the pin tracks that tag - the one hermeticity
+# wrinkle in this lane. The tarball's `fixpoint` sits at the root, so no bin_path is needed.
+[tools."github:ucsd-progsys/liquid-fixpoint"]
+version = "nightly"
+
+[tools."github:ucsd-progsys/liquid-fixpoint".platforms]
+linux-x64 = { asset_pattern = "fixpoint-x86_64-linux-gnu.tar.gz" }

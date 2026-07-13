@@ -27,12 +27,13 @@
 ## Source Of Truth
 
 - `mise/config.toml` plus the `mise/config.<env>.toml` overlays (nightly, solana, creusot, kani,
-  verus) pin every tool mise has a backend for: the rustup toolchains, node/pnpm/just, and the
+  verus, flux) pin every tool mise has a backend for: the rustup toolchains, node/pnpm/just, and the
   ubi/aqua/cargo/github-backend binaries (cargo-machete, cargo-nextest, Agave, kani-verifier, the
-  Verus bundle, verusfmt); formatting uses `MISE_ENV=nightly`
+  Verus bundle, verusfmt, Flux's Z3 and liquid-fixpoint); formatting uses `MISE_ENV=nightly`
 - `Dockerfile` defines the containerized tooling stages and owns what mise cannot express: apt
   packages, the pinned mise itself, Creusot's opam-built toolchain, Kani's `cargo kani setup`
-  bundle, and the SBF platform-tools install
+  bundle, Flux's from-source build (flux-driver + precompiled spec libs), and the SBF platform-tools
+  install
 - `Justfile` and `just/*.just` are the primary command interface
 - `rustfmt.toml` and `clippy.toml` define Rust formatting and lint behavior
 - `why3find.json` defines the prover configuration

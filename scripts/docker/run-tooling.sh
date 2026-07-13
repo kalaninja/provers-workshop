@@ -42,6 +42,14 @@ if [[ "${MISE_ENV:-}" == "kani" ]]; then
   extra_env+=(--env "KANI_HOME=/opt/kani")
 fi
 
+# Flux bakes its sysroot (flux-driver + precompiled flux_rs/flux_attrs libs) under /opt/flux
+# (flux-tooling stage, FLUX_SYSROOT=/opt/flux); point FLUX_SYSROOT there so `cargo flux` resolves the
+# driver and extern crates despite the per-run HOME rewrite. The pinned nightly resolves via
+# RUSTUP_HOME=/opt/rustup; z3 and fixpoint are on PATH from /usr/local/bin.
+if [[ "${MISE_ENV:-}" == "flux" ]]; then
+  extra_env+=(--env "FLUX_SYSROOT=/opt/flux")
+fi
+
 mkdir -p \
   "${host_cache_root}/cargo/git" \
   "${host_cache_root}/cargo/registry" \

@@ -13,6 +13,9 @@ mod kani 'just/kani.just'
 # SMT-checked Rust dialect commands (Verus)
 mod verus 'just/verus.just'
 
+# Refinement (liquid) types commands (Flux)
+mod flux 'just/flux.just'
+
 # Tooling commands
 mod tooling 'just/tooling.just'
 

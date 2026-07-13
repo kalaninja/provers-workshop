@@ -20,7 +20,7 @@ starting its lane.
 | 1 | [Creusot](https://github.com/creusot-rs/creusot) | deductive, translated to Why3 + SMT | wired up (the baseline) - [report](creusot.md) |
 | 2 | [Kani](https://github.com/model-checking/kani) | bounded model checking (CBMC) | wired up - [report](kani.md) |
 | 3 | [Verus](https://github.com/verus-lang/verus) | SMT over a verification dialect of Rust | wired up - [report](verus.md) |
-| 4 | [Flux](https://github.com/flux-rs/flux) | refinement (liquid) types | planned |
+| 4 | [Flux](https://github.com/flux-rs/flux) | refinement (liquid) types | scaffolded - tooling wired, cores pending |
 | 5 | [Aeneas](https://github.com/AeneasVerif/aeneas) | functional translation to Lean, interactive proofs | planned |
 | 6 | [hax](https://github.com/cryspen/hax) | translation to F* / Rocq / Lean | planned |
 | 7 | [VeriFast](https://github.com/verifast/verifast) | separation logic | on hold - target-fit question |
@@ -94,10 +94,10 @@ Columns fill in as lanes land.
 | Contract legibility | `requires`/`ensures` attributes + pearlite (`@`, `*x`/`^x`, `Int`) | function contracts on the fns (`#[cfg_attr(kani, kani::requires/ensures)]`, `-Z function-contracts`) checked by `#[kani::proof_for_contract]`; `old(*e)`/`*e` for pre/post - close to Creusot's clauses | inline `requires`/`ensures` in `verus!{}` (specs and code in one dialect); `*old(x)`/`*final(x)` for pre/post, vstd's `@` views for `NonZero`, frame conditions as functional-update struct `==` - the closest match to Creusot's pearlite | - | - | - | - | - |
 | Completeness | full deductive proof; the nonlinear `capacity*price <= u64::MAX` closes with no in-code hint (Why3 + the alt-ergo/z3/cvc5 ensemble handle it) | bounded model check; the cores are loop-free (no unwinding bounds) but `capacity` bounded to `u8` to keep the nonlinear `capacity*price` tractable; `kani::cover!` guards the bounded domain against vacuous passes; the dispatcher harness bounds its parser loops with `#[kani::unwind]` | full SMT proof, unbounded - the nonlinear `capacity*price <= u64::MAX` is discharged with one `assert ... by (nonlinear_arith)` - unbounded like Creusot, but Creusot's solver ensemble needed no in-code hint where Verus's single Z3 does - and no `u8` capacity cap (unlike Kani); dispatcher byte front deferred | - | - | - | - | - |
 | Proof / replay speed | tbd (time `just creusot verify` / `replay`) | ~310s wall-clock from scratch (`-j` parallel harnesses; bounded by the dispatcher's ~300s, `purchase` ~210s, others 32-54s); no replay | fast (`11 verified` in seconds of solver time); re-verifies from scratch, no replay | - | - | - | - | - |
-| Artifact story | 23 `proof.json` sessions under `verif/`, deterministic replay in pre-push | none committed - re-verifies from scratch every run | none committed - re-verifies from scratch (fast SMT queries) | - | - | - | - | - |
+| Artifact story | 23 `proof.json` sessions under `verif/`, deterministic replay in pre-push | none committed - re-verifies from scratch every run | none committed - re-verifies from scratch (fast SMT queries) | none committed - re-verifies from scratch (specs are inline attributes) | - | - | - | - |
 | Code bending | none in core bodies; extension-trait plumbing for foreign impls | cores call std directly (no axiom shims); predicates are `#[cfg(kani)]` bool fns on hand-written `*Ops` traits; PODs built field-by-field | low - the cores are written inside `verus!{}` and the proc-macro erases the ghost layer outside `cargo verus`, so the same source builds host+SBF like the siblings; residual bending is free `fn`s instead of `*Ops` traits, one `by (nonlinear_arith)` hint, and the verify recipe forcing `--cfg feature="nonzero_internals"` (vstd ships its `NonZero` model behind an undeclared feature) | - | - | - | - | - |
-| Toolchain fit | own nightly (2026-04-21) + opam-built Why3/solvers; the heaviest image | self-contained bundle: kani-verifier 0.67.0 (mise cargo backend) + CBMC/kissat via `cargo kani setup`; light image | release bundle (verus `0.2026.07.12` rolling + bundled Z3 4.12.5, mise github backend) over a pinned stable 1.96.0 rustup toolchain; needs glibc >= 2.39 so its base is trixie not the shared bookworm; `vstd` pinned from crates.io (newest, `2026-07-12`); no stable release newer than 07-05 yet, re-pin when one lands | - | - | - | - | - |
-| Maintenance | active, research-led (v0.12.0 pinned) | active (AWS); drives the std verification campaign | active, research-led (weekly releases; drives a Rust std-verification effort) | - | - | - | - | - |
+| Toolchain fit | own nightly (2026-04-21) + opam-built Why3/solvers; the heaviest image | self-contained bundle: kani-verifier 0.67.0 (mise cargo backend) + CBMC/kissat via `cargo kani setup`; light image | release bundle (verus `0.2026.07.12` rolling + bundled Z3 4.12.5, mise github backend) over a pinned stable 1.96.0 rustup toolchain; needs glibc >= 2.39 so its base is trixie not the shared bookworm; `vstd` pinned from crates.io (newest, `2026-07-12`); no stable release newer than 07-05 yet, re-pin when one lands | built from source (`cargo xtask install`) at a pinned git rev - no release/crate/rustup component; pins but does not ship nightly-2025-11-25 (rustc-dev/rust-src/llvm-tools via rustup); Z3 4.16 (glibc-2.39) + liquid-fixpoint (floating `nightly` tag) pinned via mise github backends, so its base is trixie like Verus | - | - | - | - |
+| Maintenance | active, research-led (v0.12.0 pinned) | active (AWS); drives the std verification campaign | active, research-led (weekly releases; drives a Rust std-verification effort) | active, research-led (UCSD); no tagged releases - git-HEAD only | - | - | - | - |
 
 ## Prover notes
 
@@ -189,7 +189,7 @@ committed artifacts. *Verifying* the dispatcher byte front is deferred (its code
 is present but trusted; proving it needs specs on the unsafe parsers + a
 `BoundedString` loop invariant - a weak deductive-Verus fit).
 
-### 4. Flux - planned
+### 4. Flux - scaffolded (tooling wired, cores pending)
 
 [Flux](https://github.com/flux-rs/flux) refines Rust's types with logical
 predicates (liquid types) and checks them by SMT with inference. Annotation
@@ -202,6 +202,29 @@ ITPs. Specs become refined signatures (`#[flux::sig(...)]`) and struct
 invariants (`#[flux::invariant]`, e.g. `sold <= capacity`) instead of
 requires/ensures clauses - a different way of *saying* the same contracts, not
 just proving them.
+
+The tooling lane is wired (`mise/config.flux.toml`, a `flux-tooling` Docker
+stage, `just flux verify`, a pre-push glob, `cfg(flux)` in `unexpected_cfgs`,
+and a `ticketing-flux` skeleton whose one smoke `#[flux_rs::sig]` spec verifies);
+the cores/contracts port comes next. Findings that already diverge from the
+Creusot/Kani/Verus template:
+
+- **Built from source, pinned by commit.** Flux publishes no release, crates.io
+  crate, or rustup component, and its install is a custom `cargo xtask install`
+  (not a mise backend like kani/verus), so only that build lives in the
+  Dockerfile - the nightly toolchain and both solver backends (Z3 4.16,
+  liquid-fixpoint) are pinned via mise, like the other lanes. Like Creusot/Verus
+  it is a rustc driver that pins but does not ship its nightly
+  (nightly-2025-11-25, resolved at runtime via `rustup which`); its prebuilt Z3
+  asset needs glibc >= 2.39, so this stage's base is trixie like Verus.
+- **`--cfg flux` works, but the dependency table does not.** Unlike cargo-verus,
+  `cargo flux` sets `--cfg flux`, so verification-only code is `#[cfg(flux)]`-gated
+  as under Kani and `cfg(flux)` is registered in `unexpected_cfgs`. But
+  `[target.'cfg(flux)'.dependencies]` does not activate under cargo-flux (cargo
+  probes `--print cfg` before the per-package flux profile sets the cfg), so the
+  `flux_rs` attribute crate rides in as an unconditional dependency - its
+  attributes strip to no-ops outside verification - and the crate opts into
+  checking via `[package.metadata.flux] enabled = true`.
 
 Risk to probe early: the event invariant is nonlinear
 (`capacity * price <= u64::MAX`) and liquid inference leans on linear
