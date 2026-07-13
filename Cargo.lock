@@ -5175,6 +5175,11 @@ name = "ticketing-flux"
 version = "0.1.0"
 dependencies = [
  "flux-rs",
+ "pinocchio",
+ "pinocchio-log",
+ "pinocchio-system",
+ "solana-address 2.5.0",
+ "ticketing-interface",
 ]
 
 [[package]]

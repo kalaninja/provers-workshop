@@ -5,25 +5,51 @@ edition.workspace = true
 license.workspace = true
 publish.workspace = true
 
+# `lib` first: Flux and host tests build the rlib; `cdylib` is what `cargo build-sbf` links into the
+# deployable `.so`. Behavior-identical program to `ticketing-creusot` - only the spec layer differs.
 [lib]
-crate-type = ["lib"]
+crate-type = ["lib", "cdylib"]
 
 [lints]
 workspace = true
 
-# Flux's attribute crate (`flux_rs`), the one verification dependency. An ordinary, always-on dep:
-# its attributes strip to no-ops unless `cargo flux` is driving (it sets `FLUX_BUILD_SYSROOT`, which
-# flips `flux-attrs`' build.rs from `attr_dummy` to the real macros), so ordinary host and SBF builds
-# compile this crate as plain Rust with zero verification overhead. `#![no_std]`, safe for the SBF
-# target. Flux publishes no release, crates.io crate, or rustup component, so it is pinned by git rev
-# (the same rev is baked into the flux-tooling image). `cargo flux` sets `--cfg flux`, so
-# verification-only items are `#[cfg(flux)]`-gated (as under Kani), but the dependency itself must be
-# unconditional because `[target.'cfg(flux)'.dependencies]` does not activate under cargo-flux (cargo
-# probes `--print cfg` before the per-package flux profile sets the cfg). Program cores +
-# pinocchio/ticketing-interface + the cdylib/entrypoint arrive with the port (next step).
 [dependencies]
+pinocchio = { workspace = true, features = ["cpi"] }
+pinocchio-log = { workspace = true, optional = true }
+pinocchio-system = { workspace = true }
+
+ticketing-interface = { workspace = true }
+
+# `Address` is `solana_address::Address` (pinocchio re-exports it). Flux's `#[extern_spec(...)]`
+# names the type's defining crate, so `solana-address` is pulled in directly to make `solana_address`
+# nameable in the (cfg(flux)-gated) extern-spec surface. Same 2.5.0 pin pinocchio already uses, so no
+# duplicate in the graph; referenced only under `#[cfg(flux)]`, so ordinary/SBF builds don't use it.
+solana-address = { workspace = true }
+
+# Flux's attribute crate (`flux_rs`), the one verification dependency. An always-on dep: its
+# attributes strip to no-ops unless `cargo flux` is driving (it sets `FLUX_BUILD_SYSROOT`, which flips
+# `flux-attrs`' build.rs from `attr_dummy` to the real macros), so ordinary host and SBF builds
+# compile this crate as plain Rust with zero verification overhead. Flux publishes no release,
+# crates.io crate, or rustup component, so it is pinned by git rev (the same rev is baked into the
+# flux-tooling image). `cargo flux` sets `--cfg flux`, so verification-only items (the `extern_spec`
+# surface and the `defs!` block) are `#[cfg(flux)]`-gated (as under Kani); the dependency itself must
+# be unconditional because `[target.'cfg(flux)'.dependencies]` does not activate under cargo-flux
+# (cargo probes `--print cfg` before the per-package flux profile sets the cfg).
 flux-rs = { git = "https://github.com/flux-rs/flux", rev = "1d98676057a7839c6c468aa3dd556ab769a150fa" }
+
+[features]
+default = []
+# Gates the `entrypoint!` registration so the crate can be linked as a plain rlib (host tests, Flux)
+# without clashing over the program entrypoint.
+bpf-entrypoint = []
+# Compiles `pinocchio_log` instruction tracing into the dispatcher.
+logging = ["dep:pinocchio-log"]
 
 # cargo-flux only verifies packages that opt in.
 [package.metadata.flux]
 enabled = true
+
+# `solana-address` is referenced only inside `#[cfg(flux)]` extern-spec blocks (naming `Address`'s
+# defining crate for Flux); cargo-machete does not see that use, so it is ignored here.
+[package.metadata.cargo-machete]
+ignored = ["solana-address"]

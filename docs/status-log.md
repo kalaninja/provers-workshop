@@ -3,6 +3,36 @@
 The dated chronology of [the prover roadmap](provers.md): what landed in each
 lane and what it taught, newest first.
 
+- **2026-07-13** - Flux lane wired up as a full SBF program: trusted
+  `instructions/` shells + dispatcher + `entrypoint!` + `cdylib` around the three
+  verified `flows/` cores, behavior-identical to the other lanes. `just flux
+  verify` is green (`8 checked; 18 trusted; 0 ignored`, 58 constraints, ~0.2s);
+  `just solana build/test-client-rust ticketing flux` builds `ticketing_flux.so`
+  and the generated client's Mollusk suite passes against it - the same 7 tests
+  as Creusot/Kani/Verus. The event invariant rides the `Event` type
+  (`#[flux_rs::invariant]`, no `requires` threading - the idiomatic win the
+  roadmap predicted); the safety core (no overselling, frames, legal status
+  steps, overflow-free pricing) is checked; non-vacuity mutation-tested (dropping
+  `record_sale`'s clamp makes the setter's `sold <= capacity` precondition
+  unprovable). Two walls set the cost, both trusted surface: (1) transparent
+  extern-specs are impossible for the wire structs - every `#[field]` needs a
+  refinement index, but `Event` has `Reserved` padding and a self-referential
+  `AccountHeader<Event>` header (a recursive sort) - so `Event`/`Ticket` are
+  opaque (the `core::alloc::Layout` pattern) with trusted field accessors/setters,
+  surface Verus got free from transparent registration; (2) `NonZeroU64` is
+  unmodeled (generic over the sealed `ZeroablePrimitive`, and Flux rejects
+  refining a generic `T` by an `int`) and flux-core's own
+  `checked_*`/`Result`/`Option` specs are not visible to a downstream crate at
+  rev `1d98676` (probed: `Result<(), ()>[b]` fails to sort-check while a local
+  refined enum indexes fine) - so accounting runs on built-in `u64` arithmetic
+  via trusted `nz_get`/`nz_from` bridges, the nonlinear/overflow/positivity steps
+  are trusted `mul_le_mono`/`mul_fits`/`mul_pos` lemmas (the analog of Verus's
+  `by (nonlinear_arith)`), and the cores refine their `Ok` payload rather than
+  the `Result` discriminant (dropping the exact clamp value and the `Ok<=>cond` /
+  on-error-unchanged clauses). Ergonomic upside vs Verus: plain
+  rustfmt/clippy/rust-analyzer reach the whole crate (no `verusfmt` analog). 18
+  trusted items - the largest surface of the wired lanes. Full report:
+  [flux.md](flux.md).
 - **2026-07-13** - Flux lane scaffolded: `mise/config.flux.toml`
   (nightly-2025-11-25 + rustc-dev/rust-src/llvm-tools/rustfmt/clippy), a
   `flux-tooling` Docker stage that builds Flux from source at a pinned commit
