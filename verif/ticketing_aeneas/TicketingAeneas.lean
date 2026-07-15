@@ -12,12 +12,301 @@ set_option maxHeartbeats 1000000
 /- You can set the `maxRecDepth` value with the `-max-recdepth` CLI option -/
 set_option maxRecDepth 2048
 
+/- You can remove the following line by using the CLI option `-all-computable`: -/
+noncomputable section
+
 namespace ticketing_aeneas
 
-/-- [ticketing_aeneas::smoke_triple]:
-    Source: 'crates/ticketing/aeneas/src/lib.rs', lines 26:0-28:1
+/-- [core::num::niche_types::NonZeroU64Inner]
+    Source: '/rustc/library/core/src/num/niche_types.rs', lines 20:8-20:55
+    Name pattern: [core::num::niche_types::NonZeroU64Inner]
     Visibility: public -/
-def smoke_triple (x : Std.U32) : Result Std.U32 := do
-  3#u32 * x
+@[rust_type "core::num::niche_types::NonZeroU64Inner"]
+axiom core.num.niche_types.NonZeroU64Inner : Type
+
+/-- [core::num::nonzero::NonZero]
+    Source: '/rustc/library/core/src/num/nonzero.rs', lines 128:0-128:40
+    Name pattern: [core::num::nonzero::NonZero]
+    Visibility: public -/
+@[rust_type "core::num::nonzero::NonZero"]
+axiom core.num.nonzero.NonZero (T : Type) (Clause0_NonZeroInner : Type) : Type
+
+/-- [solana_address::Address]
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/solana-address-2.5.0/src/lib.rs', lines 101:0-101:18
+    Name pattern: [solana_address::Address]
+    Visibility: public -/
+@[rust_type "solana_address::Address"]
+axiom solana_address.Address : Type
+
+/-- [solana_program_error::ProgramError]
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/solana-program-error-3.0.1/src/lib.rs', lines 57:0-57:21
+    Name pattern: [solana_program_error::ProgramError]
+    Visibility: public -/
+@[discriminant isize, rust_type "solana_program_error::ProgramError"]
+inductive solana_program_error.ProgramError where
+| Custom : Std.U32 → solana_program_error.ProgramError
+| InvalidArgument : solana_program_error.ProgramError
+| InvalidInstructionData : solana_program_error.ProgramError
+| InvalidAccountData : solana_program_error.ProgramError
+| AccountDataTooSmall : solana_program_error.ProgramError
+| InsufficientFunds : solana_program_error.ProgramError
+| IncorrectProgramId : solana_program_error.ProgramError
+| MissingRequiredSignature : solana_program_error.ProgramError
+| AccountAlreadyInitialized : solana_program_error.ProgramError
+| UninitializedAccount : solana_program_error.ProgramError
+| NotEnoughAccountKeys : solana_program_error.ProgramError
+| AccountBorrowFailed : solana_program_error.ProgramError
+| MaxSeedLengthExceeded : solana_program_error.ProgramError
+| InvalidSeeds : solana_program_error.ProgramError
+| BorshIoError : solana_program_error.ProgramError
+| AccountNotRentExempt : solana_program_error.ProgramError
+| UnsupportedSysvar : solana_program_error.ProgramError
+| IllegalOwner : solana_program_error.ProgramError
+| MaxAccountsDataAllocationsExceeded : solana_program_error.ProgramError
+| InvalidRealloc : solana_program_error.ProgramError
+| MaxInstructionTraceLengthExceeded : solana_program_error.ProgramError
+| BuiltinProgramsMustConsumeComputeUnits : solana_program_error.ProgramError
+| InvalidAccountOwner : solana_program_error.ProgramError
+| ArithmeticOverflow : solana_program_error.ProgramError
+| Immutable : solana_program_error.ProgramError
+| IncorrectAuthority : solana_program_error.ProgramError
+
+/-- [ticketing_interface::state::event::Event]
+    Source: 'crates/ticketing/interface/src/state/event.rs', lines 61:0-61:16
+    Name pattern: [ticketing_interface::state::event::Event]
+    Visibility: public -/
+@[rust_type "ticketing_interface::state::event::Event"]
+axiom ticketing_interface.state.event.Event : Type
+
+/-- [ticketing_interface::state::ticket::Ticket]
+    Source: 'crates/ticketing/interface/src/state/ticket.rs', lines 46:0-46:17
+    Name pattern: [ticketing_interface::state::ticket::Ticket]
+    Visibility: public -/
+@[rust_type "ticketing_interface::state::ticket::Ticket"]
+axiom ticketing_interface.state.ticket.Ticket : Type
+
+/-- [ticketing_interface::wire::bounded_string::BoundedString]
+    Source: 'crates/ticketing/interface/src/wire/bounded_string.rs', lines 32:0-32:40
+    Name pattern: [ticketing_interface::wire::bounded_string::BoundedString]
+    Visibility: public -/
+@[rust_type "ticketing_interface::wire::bounded_string::BoundedString"]
+axiom ticketing_interface.wire.bounded_string.BoundedString (N : Std.Usize) :
+  Type
+
+/-- [ticketing_aeneas::domain::glue::set_sold]:
+    Source: 'crates/ticketing/aeneas/src/domain/glue.rs', lines 64:0-66:1
+    Visibility: public -/
+axiom domain.glue.set_sold
+  :
+  ticketing_interface.state.event.Event → Std.U64 → Result
+    ticketing_interface.state.event.Event
+
+/-- [ticketing_aeneas::domain::glue::is_open]:
+    Source: 'crates/ticketing/aeneas/src/domain/glue.rs', lines 53:0-55:1
+    Visibility: public -/
+axiom domain.glue.is_open
+  : ticketing_interface.state.event.Event → Result Bool
+
+/-- [ticketing_aeneas::domain::glue::get_sold]:
+    Source: 'crates/ticketing/aeneas/src/domain/glue.rs', lines 48:0-50:1
+    Visibility: public -/
+axiom domain.glue.get_sold
+  : ticketing_interface.state.event.Event → Result Std.U64
+
+/-- [ticketing_aeneas::domain::glue::get_capacity]:
+    Source: 'crates/ticketing/aeneas/src/domain/glue.rs', lines 38:0-40:1
+    Visibility: public -/
+axiom domain.glue.get_capacity
+  : ticketing_interface.state.event.Event → Result Std.U64
+
+/-- [ticketing_aeneas::domain::glue::nz_get]:
+    Source: 'crates/ticketing/aeneas/src/domain/glue.rs', lines 24:0-26:1
+    Visibility: public -/
+axiom domain.glue.nz_get
+  :
+  core.num.nonzero.NonZero Std.U64 core.num.niche_types.NonZeroU64Inner →
+    Result Std.U64
+
+/-- [ticketing_aeneas::domain::event::record_sale]:
+    Source: 'crates/ticketing/aeneas/src/domain/event.rs', lines 29:0-46:1
+    Visibility: public -/
+def domain.event.record_sale
+  (event : ticketing_interface.state.event.Event)
+  (requested : core.num.nonzero.NonZero Std.U64
+  core.num.niche_types.NonZeroU64Inner) :
+  Result ((core.result.Result Std.U64 solana_program_error.ProgramError) ×
+    ticketing_interface.state.event.Event)
+  := do
+  let b ← domain.glue.is_open event
+  if b
+  then
+    let cap ← domain.glue.get_capacity event
+    let sold ← domain.glue.get_sold event
+    let remaining ← cap - sold
+    if remaining = 0#u64
+    then
+      ok (core.result.Result.Err
+        solana_program_error.ProgramError.InvalidAccountData, event)
+    else
+      let requested1 ← domain.glue.nz_get requested
+      let actual ←
+        if remaining <= requested1
+        then ok remaining
+        else ok requested1
+      let i ← sold + actual
+      let event1 ← domain.glue.set_sold event i
+      ok (core.result.Result.Ok actual, event1)
+  else
+    ok (core.result.Result.Err
+      solana_program_error.ProgramError.InvalidAccountData, event)
+
+/-- [ticketing_aeneas::domain::glue::get_price]:
+    Source: 'crates/ticketing/aeneas/src/domain/glue.rs', lines 43:0-45:1
+    Visibility: public -/
+axiom domain.glue.get_price
+  : ticketing_interface.state.event.Event → Result Std.U64
+
+/-- [ticketing_aeneas::domain::event::payment_for]:
+    Source: 'crates/ticketing/aeneas/src/domain/event.rs', lines 52:0-55:1
+    Visibility: public -/
+def domain.event.payment_for
+  (e : ticketing_interface.state.event.Event) (quantity : Std.U64) :
+  Result Std.U64
+  := do
+  let price ← domain.glue.get_price e
+  quantity * price
+
+/-- [ticketing_aeneas::domain::glue::set_status_closed]:
+    Source: 'crates/ticketing/aeneas/src/domain/glue.rs', lines 69:0-71:1
+    Visibility: public -/
+axiom domain.glue.set_status_closed
+  :
+  ticketing_interface.state.event.Event → Result
+    ticketing_interface.state.event.Event
+
+/-- [ticketing_aeneas::domain::event::close_sales]:
+    Source: 'crates/ticketing/aeneas/src/domain/event.rs', lines 58:0-64:1
+    Visibility: public -/
+def domain.event.close_sales
+  (event : ticketing_interface.state.event.Event) :
+  Result ((core.result.Result Unit solana_program_error.ProgramError) ×
+    ticketing_interface.state.event.Event)
+  := do
+  let b ← domain.glue.is_open event
+  if b
+  then
+    let event1 ← domain.glue.set_status_closed event
+    ok (core.result.Result.Ok (), event1)
+  else
+    ok (core.result.Result.Err
+      solana_program_error.ProgramError.InvalidAccountData, event)
+
+/-- [ticketing_aeneas::domain::glue::nz_from]:
+    Source: 'crates/ticketing/aeneas/src/domain/glue.rs', lines 30:0-35:1
+    Visibility: public -/
+axiom domain.glue.nz_from
+  :
+  Std.U64 → Result (core.num.nonzero.NonZero Std.U64
+    core.num.niche_types.NonZeroU64Inner)
+
+/-- [ticketing_aeneas::domain::glue::organizer_eq]:
+    Source: 'crates/ticketing/aeneas/src/domain/glue.rs', lines 58:0-60:1
+    Visibility: public -/
+axiom domain.glue.organizer_eq
+  :
+  ticketing_interface.state.event.Event → solana_address.Address → Result
+    Bool
+
+/-- [ticketing_aeneas::domain::glue::event_new]:
+    Source: 'crates/ticketing/aeneas/src/domain/glue.rs', lines 77:0-98:1
+    Visibility: public -/
+axiom domain.glue.event_new
+  :
+  solana_address.Address → Std.U64 → Std.U64 →
+    ticketing_interface.wire.bounded_string.BoundedString 64#usize → Std.U8
+    → Std.U64 → Result ticketing_interface.state.event.Event
+
+/-- [ticketing_aeneas::domain::glue::ticket_new]:
+    Source: 'crates/ticketing/aeneas/src/domain/glue.rs', lines 101:0-120:1
+    Visibility: public -/
+axiom domain.glue.ticket_new
+  :
+  solana_address.Address → solana_address.Address →
+    core.num.nonzero.NonZero Std.U64 core.num.niche_types.NonZeroU64Inner →
+    core.num.nonzero.NonZero Std.U64 core.num.niche_types.NonZeroU64Inner →
+    Std.U8 → Std.U64 → Result ticketing_interface.state.ticket.Ticket
+
+/-- [ticketing_aeneas::flows::event_close::close_event]:
+    Source: 'crates/ticketing/aeneas/src/flows/event_close.rs', lines 12:0-17:1
+    Visibility: public -/
+def flows.event_close.close_event
+  (event : ticketing_interface.state.event.Event)
+  (organizer : solana_address.Address) :
+  Result ((core.result.Result Unit solana_program_error.ProgramError) ×
+    ticketing_interface.state.event.Event)
+  := do
+  let b ← domain.glue.organizer_eq event organizer
+  if b
+  then domain.event.close_sales event
+  else
+    ok (core.result.Result.Err
+      solana_program_error.ProgramError.InvalidAccountData, event)
+
+/-- [ticketing_aeneas::flows::event_create::create_event]:
+    Source: 'crates/ticketing/aeneas/src/flows/event_create.rs', lines 19:0-33:1
+    Visibility: public -/
+def flows.event_create.create_event
+  (organizer : solana_address.Address)
+  (capacity : core.num.nonzero.NonZero Std.U64
+  core.num.niche_types.NonZeroU64Inner)
+  (price_lamports : core.num.nonzero.NonZero Std.U64
+  core.num.niche_types.NonZeroU64Inner)
+  (name1 : ticketing_interface.wire.bounded_string.BoundedString 64#usize)
+  (bump : Std.U8) (created_slot : Std.U64) :
+  Result (core.result.Result ticketing_interface.state.event.Event
+    solana_program_error.ProgramError)
+  := do
+  let c ← domain.glue.nz_get capacity
+  let p ← domain.glue.nz_get price_lamports
+  let o ← lift (U64.checked_mul c p)
+  match o with
+  | none =>
+    ok (core.result.Result.Err
+      solana_program_error.ProgramError.ArithmeticOverflow)
+  | some _ =>
+    let e ← domain.glue.event_new organizer c p name1 bump created_slot
+    ok (core.result.Result.Ok e)
+
+/-- [ticketing_aeneas::flows::ticket_buy::purchase]:
+    Source: 'crates/ticketing/aeneas/src/flows/ticket_buy.rs', lines 27:0-46:1
+    Visibility: public -/
+def flows.ticket_buy.purchase
+  (event : ticketing_interface.state.event.Event)
+  (organizer : solana_address.Address) (event_addr : solana_address.Address)
+  (buyer : solana_address.Address)
+  (requested : core.num.nonzero.NonZero Std.U64
+  core.num.niche_types.NonZeroU64Inner) (bump : Std.U8)
+  (created_slot : Std.U64) :
+  Result ((core.result.Result ((core.num.nonzero.NonZero Std.U64
+    core.num.niche_types.NonZeroU64Inner) ×
+    ticketing_interface.state.ticket.Ticket) solana_program_error.ProgramError)
+    × ticketing_interface.state.event.Event)
+  := do
+  let b ← domain.glue.organizer_eq event organizer
+  if b
+  then
+    let (r, event1) ← domain.event.record_sale event requested
+    match r with
+    | core.result.Result.Ok actual =>
+      let i ← domain.event.payment_for event1 actual
+      let payment ← domain.glue.nz_from i
+      let nz ← domain.glue.nz_from actual
+      let ticket ←
+        domain.glue.ticket_new event_addr buyer payment nz bump created_slot
+      ok (core.result.Result.Ok (payment, ticket), event1)
+    | core.result.Result.Err e => ok (core.result.Result.Err e, event1)
+  else
+    ok (core.result.Result.Err
+      solana_program_error.ProgramError.InvalidAccountData, event)
 
 end ticketing_aeneas

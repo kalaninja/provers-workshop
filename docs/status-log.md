@@ -3,6 +3,41 @@
 The dated chronology of [the prover roadmap](provers.md): what landed in each
 lane and what it taught, newest first.
 
+- **2026-07-14** - Aeneas lane wired up as a full program: a `ticketing-aeneas`
+  crate (trusted `instructions/` shells + dispatcher + `entrypoint!` around the
+  `flows/` cores and `domain/` accounting, the plainest source of any lane - no
+  in-Rust spec, no `cfg`, no verifier dep) builds a behavior-identical
+  `ticketing_aeneas.so`; `just solana test-client-rust ticketing aeneas` passes
+  the same 7 Mollusk tests as the other lanes. Charon extracts the pure cores to a
+  committed Lean model and `just aeneas verify`/`replay` check the hand-written
+  proofs. **The headline: Aeneas proves what Flux trusts.** The cores run on `u64`
+  (opaque `NonZeroU64` kept out of the extracted logic), so `payment_for`'s
+  nonlinear `quantity * price <= capacity * price <= u64::MAX` closes by mathlib
+  monotonicity (`Nat.mul_le_mul_right`) rather than Flux's trusted `mul_le_mono`
+  lemma, and `create_event`'s exact `Ok<=>overflow` discriminant (via a modeled
+  `checked_mul`) is recovered where Flux drops it, along with the invariant's
+  base case. `record_sale` proves invariant preservation (no overselling - the
+  `set_sold` `v<=capacity` guard discharged from the clamp), the same-except-sold
+  frame, the exact positive clamp `min(requested, capacity - sold)` and `sold`
+  delta, and on-error-unchanged with the exact error discriminant;
+  `close_sales`/`close_event` prove the `open->closed` step, organizer auth, and
+  frames. All six flow/domain cores verified at the Creusot reference lane's
+  spec coverage, including the end-to-end `purchase` composition (ticket pins
+  event/buyer/payment/quantity/bump/slots - the `is_initial` analog - and the
+  exact economics). A lesson that shaped the source: `?` in the extracted cores
+  drags the `Try`/`ControlFlow` trait machinery into the Lean model
+  (`branch`/`from_residual` scaffolding that every proof must simp away and that
+  blocked the `purchase` proof), so the cores were rewritten `?`-free - explicit
+  `if`/`match` - shrinking the generated model from 367 to 312 lines with zero
+  Try-machinery and making the composition proof direct. Trusted surface: the
+  opaque `domain::glue` (accessors/setters/ctors + `nz_*`/`Address` bridges)
+  axiomatized with `@[step]` Lean specs - Flux-shaped, but smaller on
+  arithmetic. Tooling deviations found on the way: the `cdylib`
+  forces `charon --sysroot default` (the default MIR-only sysroot cannot link one
+  on the host) in an isolated `CARGO_TARGET_DIR`; extraction is scoped by
+  `[package.metadata.charon] start_from`/`opaque`; and Lean checking runs `lean`
+  against the image's prebuilt oleans (Lake re-clones mathlib per run). Full
+  report: [aeneas.md](aeneas.md).
 - **2026-07-13** - Aeneas lane scaffolded: `mise/config.aeneas.toml`
   (Charon's nightly-2026-06-01 + rustc-dev/rust-src/llvm-tools/miri, plus elan via
   the ubi backend), an `aeneas-tooling` Docker stage that builds Charon and Aeneas

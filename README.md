@@ -40,17 +40,17 @@ identical contracts.
 | 2 | [Kani](https://github.com/model-checking/kani) | bounded model checking (CBMC) | wired up |
 | 3 | [Verus](https://github.com/verus-lang/verus) | SMT over a verification dialect of Rust | wired up |
 | 4 | [Flux](https://github.com/flux-rs/flux) | refinement (liquid) types | wired up |
-| 5 | [Aeneas](https://github.com/AeneasVerif/aeneas) | functional translation to Lean | scaffolded |
+| 5 | [Aeneas](https://github.com/AeneasVerif/aeneas) | functional translation to Lean | wired up |
 | 6 | [hax](https://github.com/cryspen/hax) | translation to F* / Rocq / Lean | queued |
 | 7 | [VeriFast](https://github.com/verifast/verifast) | separation logic | on hold |
 | 8 | [Prusti](https://github.com/viperproject/prusti-dev) | deductive, Viper backend | on hold |
 
-Creusot, Kani, Verus, and Flux are wired up today; Aeneas is scaffolded (tooling
-lane up, cores and Lean proofs pending). The ordering rationale, integration
-ground rules, and the running comparison live in the roadmap index
-[docs/provers.md](docs/provers.md); each wired lane has a full report next to
-it ([docs/creusot.md](docs/creusot.md), [docs/kani.md](docs/kani.md),
-[docs/verus.md](docs/verus.md), [docs/flux.md](docs/flux.md)). What we
+Creusot, Kani, Verus, Flux, and Aeneas are wired up today. The ordering
+rationale, integration ground rules, and the running comparison live in the
+roadmap index [docs/provers.md](docs/provers.md); each wired lane has a full
+report next to it ([docs/creusot.md](docs/creusot.md),
+[docs/kani.md](docs/kani.md), [docs/verus.md](docs/verus.md),
+[docs/flux.md](docs/flux.md), [docs/aeneas.md](docs/aeneas.md)). What we
 compare per prover: what has to be marked trusted, how the contracts read,
 proof and replay speed, and how far the cores must bend to fit the tool.
 

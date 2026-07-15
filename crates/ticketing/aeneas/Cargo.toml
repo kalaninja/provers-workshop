@@ -5,16 +5,47 @@ edition.workspace = true
 license.workspace = true
 publish.workspace = true
 
+# `lib` first: Charon extracts the rlib and host tests build it; `cdylib` is what `cargo build-sbf`
+# links into the deployable `.so`. Behavior-identical program to the other lanes - Aeneas carries no
+# in-source spec layer at all (proofs are external Lean over the Charon-extracted model).
 [lib]
-crate-type = ["lib"]
+crate-type = ["lib", "cdylib"]
 
 [lints]
 workspace = true
 
-# No verification dependency, and no cfg/feature gate. Aeneas proves this crate from the OUTSIDE:
-# Charon extracts it to an LLBC model, Aeneas translates that to Lean, and the proofs are hand-written
-# Lean under verif/ticketing_aeneas - nothing in the Rust source. So, unlike every other lane, there
-# is no spec surface to strip, no `cfg(aeneas)` in the workspace check-cfg, and no attribute crate to
-# pull in: this compiles as ordinary Rust everywhere. Program cores + pinocchio/ticketing-interface +
-# the cdylib/entrypoint arrive with the port (next step).
+# Plain program dependencies - no verifier dependency (unlike flux-rs/creusot-std/vstd). Aeneas proves
+# the crate from the outside: Charon -> LLBC -> Lean, with the proofs hand-written under
+# verif/ticketing_aeneas. So this is the plainest crate in the roster: a port of the ticketing-creusot
+# reference program with no in-source verification surface at all.
 [dependencies]
+pinocchio = { workspace = true, features = ["cpi"] }
+pinocchio-log = { workspace = true, optional = true }
+pinocchio-system = { workspace = true }
+
+ticketing-interface = { workspace = true }
+
+[features]
+default = []
+# Gates the `entrypoint!` registration so the crate can be linked as a plain rlib (host tests, Charon
+# extraction) without clashing over the program entrypoint.
+bpf-entrypoint = []
+# Compiles `pinocchio_log` instruction tracing into the dispatcher.
+logging = ["dep:pinocchio-log"]
+
+# Charon extraction config (read by `charon cargo`, driven from scripts/aeneas/verify.sh). Aeneas
+# proves only the pure decision cores, so:
+# - `start_from` scopes emission to the `flows` cores (+ the pure `domain::event` accounting they
+#   pull in); the imperative `instructions/` shells + `entrypoint!` are never extracted.
+# - `opaque` abstracts the layer Aeneas cannot (and should not) see through: `domain::glue` - the only
+#   code that touches `Event`/`Ticket`/`NonZeroU64` fields (accessors/setters/bridges/constructors) -
+#   and the wire structs themselves (`pub` fields, but a recursive `AccountHeader` header + padding).
+#   Everything else foreign (pinocchio/bytemuck/solana-address/`core::num`) is opaque by default.
+# Tune against `charon`'s output + `aeneas -print-unknown-externals`.
+[package.metadata.charon]
+start_from = ["crate::flows"]
+opaque = [
+    "crate::domain::glue",
+    "ticketing_interface::state::event::Event",
+    "ticketing_interface::state::ticket::Ticket",
+]
