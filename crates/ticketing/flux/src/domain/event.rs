@@ -112,9 +112,14 @@ pub fn record_sale(event: &mut Event, requested: NonZeroU64) -> Result<u64, Prog
 /// Computes the lamport payment due for `quantity` tickets at this event's unit
 /// price. Total, not fallible: the clamp guarantees `quantity <= capacity`, so
 /// the product neither overflows (`capacity * price <= u64::MAX` is the event
-/// invariant) nor is zero (both factors are positive) - Flux discharges both,
-/// so no error case survives.
-#[flux_rs::sig(fn(e: &Event[@ev], quantity: u64{q: 0 < q && q <= ev.capacity}) -> u64{p: 0 < p})]
+/// invariant) nor is zero (both factors are positive). The signature states the
+/// exact product `quantity * price`; its fit in `u64` and its positivity ride
+/// the trusted `mul_le_mono`/`mul_pos` lemmas (flux-core's std specs are not
+/// visible downstream), so no error case survives.
+#[flux_rs::sig(
+    fn(e: &Event[@ev], quantity: u64[@q]) -> u64{p: p == q * ev.price && 0 < p}
+    requires 0 < q && q <= ev.capacity
+)]
 pub fn payment_for(e: &Event, quantity: u64) -> u64 {
     let price = get_price(e);
     mul_le_mono(quantity, get_capacity(e), price);

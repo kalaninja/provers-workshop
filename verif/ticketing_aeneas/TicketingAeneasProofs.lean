@@ -5,12 +5,16 @@
    The wire types (`Event`/`Ticket`/`Address`/`NonZeroU64`) and the field-level glue
    (`domain::glue::*`) are opaque in the extracted model, so we give them trusted specs here - the
    declared trusted computing base, the analog of Flux's `#[extern_spec]`s and Creusot's `#[trusted]`
-   shims. Everything else (the `flows`/`domain::event` decision logic) is a real extracted
-   definition, and its contracts are proved - including the nonlinear `capacity * price <= u64::MAX`
-   bound and the `payment = quantity * price` product (which Flux only *trusts*), and the end-to-end
-   `purchase` composition. The contracts mirror the Creusot reference lane's
-   (`crates/ticketing/creusot`): exact clamp, exact `sold` delta, initial-state and on-error-unchanged
-   characterizations. -/
+   shims; the constructor axioms carry the Creusot constructors' `requires` as hypotheses. Everything
+   else (the `flows`/`domain::event` decision logic) is a real extracted definition, and its
+   contracts are proved - including the nonlinear `capacity * price <= u64::MAX` bound and the
+   `payment = quantity * price` product (which Flux only *trusts*), and the end-to-end `purchase`
+   composition. The contracts mirror the Creusot reference lane's (`crates/ticketing/creusot`):
+   exact clamp, exact `sold` delta, positive payment, the ticket invariant under `is_set`
+   preconditions, full frames over every modeled projection (name/slots/bump included), and
+   initial-state and on-error-unchanged characterizations. Of the wire fields only
+   `header`/`_reserved` are unmodeled (the self-referential header + padding that force the types
+   opaque in the first place). -/
 import TicketingAeneas
 
 open Aeneas Aeneas.Std Result
@@ -41,6 +45,7 @@ axiom evPrice : Ev → U64
 axiom evSold : Ev → U64
 axiom evBump : Ev → U8
 axiom evClosed : Ev → Bool
+axiom evName : Ev → ticketing_interface.wire.bounded_string.BoundedString 64#usize
 
 /-- "Address is set" - the uninterpreted not-all-zero predicate (Creusot/Flux/Verus all model it
 opaquely). -/
@@ -71,6 +76,11 @@ def Event.inv (e : Ev) : Prop :=
   (evSold e).val ≤ (evCapacity e).val ∧
   (evCapacity e).val * (evPrice e).val ≤ U64.max
 
+/-- The ticket invariant, mirroring the Creusot lane's `Ticket::invariant`: the event and buyer
+references are set. -/
+def Ticket.inv (t : Tk) : Prop :=
+  addrIsSet (tkEvent t) ∧ addrIsSet (tkBuyer t)
+
 -- Accessors: pure reads of the projections.
 @[simp] axiom get_capacity_spec (e : Ev) : domain.glue.get_capacity e = ok (evCapacity e)
 @[simp] axiom get_price_spec (e : Ev) : domain.glue.get_price e = ok (evPrice e)
@@ -86,48 +96,58 @@ def Event.inv (e : Ev) : Prop :=
 @[step] axiom set_sold_spec (e : Ev) (v : U64) (hv : v.val ≤ (evCapacity e).val) :
     domain.glue.set_sold e v ⦃ e' =>
       (evSold e').val = v.val ∧ evCapacity e' = evCapacity e ∧ evPrice e' = evPrice e ∧
-      evOrganizer e' = evOrganizer e ∧ evClosed e' = evClosed e ∧
+      evOrganizer e' = evOrganizer e ∧ evClosed e' = evClosed e ∧ evName e' = evName e ∧
       evCreatedSlot e' = evCreatedSlot e ∧ evUpdatedSlot e' = evUpdatedSlot e ∧
       evBump e' = evBump e ⦄
 
 @[step] axiom set_status_closed_spec (e : Ev) :
     domain.glue.set_status_closed e ⦃ e' =>
       evClosed e' = true ∧ evCapacity e' = evCapacity e ∧ evPrice e' = evPrice e ∧
-      evOrganizer e' = evOrganizer e ∧ evSold e' = evSold e ∧
+      evOrganizer e' = evOrganizer e ∧ evSold e' = evSold e ∧ evName e' = evName e ∧
       evCreatedSlot e' = evCreatedSlot e ∧ evUpdatedSlot e' = evUpdatedSlot e ∧
       evBump e' = evBump e ⦄
 
 -- Constructors: the fresh-event / fresh-ticket postconditions (the analog of the Creusot lane's
--- `is_initial` predicates).
-@[step] axiom event_new_spec (organizer : Addr) (c p : U64) (name1 : ticketing_interface.wire.bounded_string.BoundedString 64#usize) (bump : U8) (slot : U64) :
+-- `is_initial` predicates), carrying the Creusot constructors' `requires` as hypotheses. The
+-- positivity hypotheses also keep `event_new` honest about the glue's `nz_from` re-materialization
+-- (which clamps `0` to `NonZeroU64::MIN`, so the unconditional field equalities would be false of
+-- the real code at `c = 0` or `p = 0`).
+@[step] axiom event_new_spec (organizer : Addr) (c p : U64) (name1 : ticketing_interface.wire.bounded_string.BoundedString 64#usize) (bump : U8) (slot : U64)
+    (hset : addrIsSet organizer) (hc : 0 < c.val) (hp : 0 < p.val)
+    (hbound : c.val * p.val ≤ U64.max) :
     domain.glue.event_new organizer c p name1 bump slot ⦃ e =>
       evOrganizer e = organizer ∧ evCapacity e = c ∧ evPrice e = p ∧
-      (evSold e).val = 0 ∧ evClosed e = false ∧
+      (evSold e).val = 0 ∧ evClosed e = false ∧ evName e = name1 ∧
       evCreatedSlot e = slot ∧ evUpdatedSlot e = slot ∧ evBump e = bump ⦄
 
-@[step] axiom ticket_new_spec (event buyer : Addr) (paid quantity : NZU64) (bump : U8) (slot : U64) :
+@[step] axiom ticket_new_spec (event buyer : Addr) (paid quantity : NZU64) (bump : U8) (slot : U64)
+    (hev : addrIsSet event) (hbuy : addrIsSet buyer) :
     domain.glue.ticket_new event buyer paid quantity bump slot ⦃ t =>
       tkEvent t = event ∧ tkBuyer t = buyer ∧ tkPaid t = paid ∧ tkQuantity t = quantity ∧
       tkBump t = bump ∧ tkCreatedSlot t = slot ∧ tkUpdatedSlot t = slot ⦄
 
 /-! ## Proved contracts (the extracted decision cores) -/
 
-/-- `payment_for`: for `quantity <= capacity`, the payment is exactly `quantity * price` and does
+/-- `payment_for`: for positive `quantity <= capacity`, the payment is exactly
+`quantity * price`, positive (Creusot carries this via the `NonZeroU64` return type), and does
 not overflow. The nonlinear bound is *proved* here (from the invariant + monotonicity), where Flux
 trusts a `mul_le_mono` lemma. -/
 @[step]
 theorem payment_for_spec (e : Ev) (quantity : U64)
-    (hinv : Event.inv e) (hq : quantity.val ≤ (evCapacity e).val) :
-    domain.event.payment_for e quantity ⦃ p => p.val = quantity.val * (evPrice e).val ⦄ := by
+    (hinv : Event.inv e) (hq : quantity.val ≤ (evCapacity e).val)
+    (hqpos : 0 < quantity.val) :
+    domain.event.payment_for e quantity ⦃ p =>
+      p.val = quantity.val * (evPrice e).val ∧ 0 < p.val ⦄ := by
   unfold domain.event.payment_for
-  obtain ⟨_, _, _, _, hcap⟩ := hinv
+  obtain ⟨_, _, hp, _, hcap⟩ := hinv
   simp only [get_price_spec]
   step
   · -- no overflow: quantity * price ≤ capacity * price ≤ u64::MAX
     have : quantity.val * (evPrice e).val ≤ (evCapacity e).val * (evPrice e).val :=
       Nat.mul_le_mul_right _ hq
     omega
-  · omega
+  · have hpos := Nat.mul_pos hqpos hp
+    constructor <;> omega
 
 /-- `create_event`: `Ok` yields an initial event satisfying the invariant (the invariant's base
 case); the error is exactly `capacity * price` overflow. The overflow check runs on `u64`
@@ -141,6 +161,7 @@ theorem create_event_spec (organizer : Addr) (capacity price_lamports : NZU64)
         Event.inv e ∧
         evOrganizer e = organizer ∧ evCapacity e = nzVal capacity ∧
         evPrice e = nzVal price_lamports ∧ (evSold e).val = 0 ∧ evClosed e = false ∧
+        evName e = name1 ∧
         evCreatedSlot e = slot ∧ evUpdatedSlot e = slot ∧ evBump e = bump
       | .Err e => e = .ArithmeticOverflow ∧
         U64.max < (nzVal capacity).val * (nzVal price_lamports).val) ⦄ := by
@@ -158,9 +179,9 @@ theorem create_event_spec (organizer : Addr) (capacity price_lamports : NZU64)
     rw [hEq] at hmul
     obtain ⟨hbound, _, _⟩ := hmul
     simp only [bind_ok, bind_tc_ok]
-    step as ⟨e, ho, hcap, hpr, hs, hcl, hcs, hus, hb⟩
+    step as ⟨e, ho, hcap, hpr, hs, hcl, hname, hcs, hus, hb⟩ <;> try assumption
     try simp only [WP.spec_ok]
-    refine ⟨⟨?_, ?_, ?_, ?_, ?_⟩, ho, hcap, hpr, hs, hcl, hcs, hus, hb⟩
+    refine ⟨⟨?_, ?_, ?_, ?_, ?_⟩, ho, hcap, hpr, hs, hcl, hname, hcs, hus, hb⟩
     · rw [ho]; exact hset
     · rw [hcap]; exact hc
     · rw [hpr]; exact hp
@@ -168,15 +189,18 @@ theorem create_event_spec (organizer : Addr) (capacity price_lamports : NZU64)
     · rw [hcap, hpr]; exact hbound
 
 /-- `record_sale`: preserves the invariant (so `sold <= capacity` is maintained - no overselling),
-changes only `sold`, succeeds exactly when sales are open with headroom left, returns the exact
-positive clamp `min(requested, capacity - sold)`, grows `sold` by exactly that quantity, and on
-error leaves the event unchanged. -/
+changes only `sold` (every other modeled field is pinned), succeeds exactly when sales are open
+with headroom left, returns the exact positive clamp `min(requested, capacity - sold)`, grows
+`sold` by exactly that quantity, and on error leaves the event unchanged. -/
 @[step]
 theorem record_sale_spec (event : Ev) (requested : NZU64) (hinv : Event.inv event) :
     domain.event.record_sale event requested ⦃ (res, event') =>
       Event.inv event' ∧
       evCapacity event' = evCapacity event ∧ evPrice event' = evPrice event ∧
       evOrganizer event' = evOrganizer event ∧ evClosed event' = evClosed event ∧
+      evName event' = evName event ∧
+      evCreatedSlot event' = evCreatedSlot event ∧ evUpdatedSlot event' = evUpdatedSlot event ∧
+      evBump event' = evBump event ∧
       (evSold event).val ≤ (evSold event').val ∧
       (match res with
       | .Ok actual =>
@@ -195,7 +219,8 @@ theorem record_sale_spec (event : Ev) (requested : NZU64) (hinv : Event.inv even
   | true =>
     simp only [Bool.not_true, reduceIte, if_false, Bool.false_eq_true, bind_ok, bind_tc_ok,
       WP.spec_ok]
-    refine ⟨⟨hset, hcap, hprice, hsold, hbound⟩, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;> simp_all
+    refine ⟨⟨hset, hcap, hprice, hsold, hbound⟩, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
+      simp_all
   | false =>
     simp only [Bool.not_false, reduceIte, if_true, bind_ok, bind_tc_ok]
     step as ⟨remaining⟩ <;> try scalar_tac
@@ -205,7 +230,8 @@ theorem record_sale_spec (event : Ev) (requested : NZU64) (hinv : Event.inv even
       try simp only [WP.spec_ok]
       rename_i hzero
       have hsc : (evSold event).val = (evCapacity event).val := by scalar_tac
-      refine ⟨⟨hset, hcap, hprice, hsold, hbound⟩, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;> simp_all
+      refine ⟨⟨hset, hcap, hprice, hsold, hbound⟩, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
+        simp_all
     · rename_i hne
       rw [show (if remaining ≤ nzVal requested then Result.ok remaining
                 else Result.ok (nzVal requested))
@@ -222,14 +248,18 @@ theorem record_sale_spec (event : Ev) (requested : NZU64) (hinv : Event.inv even
       step as ⟨event1⟩ <;> try scalar_tac
       simp_all [Event.inv] <;> first | omega | scalar_tac
 
-/-- `close_sales`: preserves the invariant, changes only `status` (`open -> closed`), succeeds
-exactly when sales were open, and on error leaves the event unchanged. -/
+/-- `close_sales`: preserves the invariant, changes only `status` (`open -> closed`; every other
+modeled field is pinned), succeeds exactly when sales were open, and on error leaves the event
+unchanged. -/
 @[step]
 theorem close_sales_spec (event : Ev) (hinv : Event.inv event) :
     domain.event.close_sales event ⦃ (res, event') =>
       Event.inv event' ∧
       evCapacity event' = evCapacity event ∧ evPrice event' = evPrice event ∧
       evOrganizer event' = evOrganizer event ∧ evSold event' = evSold event ∧
+      evName event' = evName event ∧
+      evCreatedSlot event' = evCreatedSlot event ∧ evUpdatedSlot event' = evUpdatedSlot event ∧
+      evBump event' = evBump event ∧
       (match res with
       | .Ok _ => evClosed event = false ∧ evClosed event' = true
       | .Err _ => event' = event ∧ evClosed event = true) ⦄ := by
@@ -240,20 +270,24 @@ theorem close_sales_spec (event : Ev) (hinv : Event.inv event) :
   | true =>
     simp only [Bool.not_true, reduceIte, if_false, Bool.false_eq_true, bind_ok, bind_tc_ok,
       WP.spec_ok]
-    refine ⟨⟨hset, hcap, hprice, hsold, hbound⟩, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;> simp_all
+    refine ⟨⟨hset, hcap, hprice, hsold, hbound⟩, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
+      simp_all
   | false =>
     simp only [Bool.not_false, reduceIte, if_true, bind_ok, bind_tc_ok]
     step as ⟨event1⟩ <;> try scalar_tac
     simp_all [Event.inv] <;> first | omega | scalar_tac
 
 /-- `close_event`: succeeds exactly when the caller is the organizer and sales are open; then it
-moves `open -> closed`, preserving the invariant and changing only `status`; on error the event is
-unchanged. -/
+moves `open -> closed`, preserving the invariant and changing only `status` (every other modeled
+field is pinned); on error the event is unchanged. -/
 theorem close_event_spec (event : Ev) (organizer : Addr) (hinv : Event.inv event) :
     flows.event_close.close_event event organizer ⦃ (res, event') =>
       Event.inv event' ∧
       evCapacity event' = evCapacity event ∧ evPrice event' = evPrice event ∧
       evOrganizer event' = evOrganizer event ∧ evSold event' = evSold event ∧
+      evName event' = evName event ∧
+      evCreatedSlot event' = evCreatedSlot event ∧ evUpdatedSlot event' = evUpdatedSlot event ∧
+      evBump event' = evBump event ∧
       (match res with
       | .Ok _ => evOrganizer event = organizer ∧ evClosed event = false ∧ evClosed event' = true
       | .Err _ => event' = event ∧ (evOrganizer event ≠ organizer ∨ evClosed event = true)) ⦄ := by
@@ -267,29 +301,38 @@ theorem close_event_spec (event : Ev) (organizer : Addr) (hinv : Event.inv event
     all_goals first | exact hinv' | (simp_all [Event.inv]) | omega | scalar_tac | tauto | trivial
   · simp only [horg, decide_false, Bool.false_eq_true, reduceIte, if_false, bind_ok, bind_tc_ok,
       WP.spec_ok]
-    exact ⟨hinv', rfl, rfl, rfl, rfl, rfl, Or.inl horg⟩
+    exact ⟨hinv', rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, Or.inl horg⟩
 
 /-- `purchase`: the end-to-end ticket-buy contract, mirroring the Creusot reference lane's.
-Succeeds exactly under organizer authorization + open sales + headroom; preserves the invariant;
-only `sold` changes and it grows by exactly the ticket's clamped quantity
-`min(requested, capacity - sold)` (positive); the ticket pins the event/buyer/payment/bump/slots;
-the payment is exactly `quantity * price` (no overflow); on error the event is unchanged. -/
+Requires set event/buyer addresses (Creusot's `is_set` preconditions); succeeds exactly under
+organizer authorization + open sales + headroom; preserves the invariant; only `sold` changes
+(every other modeled field is pinned) and it grows by exactly the ticket's clamped quantity
+`min(requested, capacity - sold)` (positive); the ticket carries its invariant (event and buyer
+set — Creusot's `is_initial` includes it), pins the event/buyer/payment/bump/slots, and is
+consistent with the updated event (`quantity <= sold'`); the payment is exactly
+`quantity * price`, positive, with no overflow; on error the event is unchanged. -/
 theorem purchase_spec (event : Ev) (organizer event_addr buyer : Addr) (requested : NZU64)
-    (bump : U8) (slot : U64) (hinv : Event.inv event) :
+    (bump : U8) (slot : U64) (hinv : Event.inv event)
+    (hev : addrIsSet event_addr) (hbuy : addrIsSet buyer) :
     flows.ticket_buy.purchase event organizer event_addr buyer requested bump slot ⦃ (res, event') =>
       Event.inv event' ∧
       evCapacity event' = evCapacity event ∧ evPrice event' = evPrice event ∧
       evOrganizer event' = evOrganizer event ∧ evClosed event' = evClosed event ∧
+      evName event' = evName event ∧
+      evCreatedSlot event' = evCreatedSlot event ∧ evUpdatedSlot event' = evUpdatedSlot event ∧
+      evBump event' = evBump event ∧
       (evSold event).val ≤ (evSold event').val ∧
       (match res with
       | .Ok (payment, ticket) =>
         evOrganizer event = organizer ∧ evClosed event = false ∧
+        Ticket.inv ticket ∧
         tkEvent ticket = event_addr ∧ tkBuyer ticket = buyer ∧ tkPaid ticket = payment ∧
         tkBump ticket = bump ∧ tkCreatedSlot ticket = slot ∧ tkUpdatedSlot ticket = slot ∧
         0 < (nzVal (tkQuantity ticket)).val ∧
         (nzVal (tkQuantity ticket)).val
           = min (nzVal requested).val ((evCapacity event).val - (evSold event).val) ∧
         (evSold event').val = (evSold event).val + (nzVal (tkQuantity ticket)).val ∧
+        (nzVal (tkQuantity ticket)).val ≤ (evSold event').val ∧
         (nzVal payment).val = (nzVal (tkQuantity ticket)).val * (evPrice event).val
       | .Err _ => event' = event) ⦄ := by
   unfold flows.ticket_buy.purchase
@@ -297,28 +340,28 @@ theorem purchase_spec (event : Ev) (organizer event_addr buyer : Addr) (requeste
   simp only [organizer_eq_spec, bind_ok, bind_tc_ok]
   by_cases horg : evOrganizer event = organizer
   · simp only [horg, decide_true, reduceIte, bind_ok, bind_tc_ok]
-    step as ⟨r1, event1, hinv1, hcap1, hprice1, horg1, hclosed1, hmono, hmatch⟩
+    step as ⟨r1, event1, hinv1, hcap1, hprice1, horg1, hclosed1, hname1, hcs1, hus1, hb1, hmono,
+      hmatch⟩
     cases r1 with
     | Ok actual =>
       obtain ⟨hopen, hapos, hamin, hdelta, hacap⟩ := hmatch
       have hacap1 : actual.val ≤ (evCapacity event1).val := by rw [hcap1]; exact hacap
-      have hp1 : 0 < (evPrice event1).val := hinv1.2.2.1
-      step as ⟨i, hi⟩
+      step as ⟨i, hi, hipos⟩
       try simp only [nz_from_spec, bind_ok, bind_tc_ok]
       step as ⟨ticket, htEv, htBuyer, htPaid, htQ, htB, htCS, htUS⟩
       try simp only [WP.spec_ok]
-      have hipos : 0 < i.val := by rw [hi]; exact Nat.mul_pos hapos hp1
       have hpay := nzVal_nzMk i hipos
       have hqv := nzVal_nzMk actual hapos
-      refine ⟨hinv1, hcap1, hprice1, horg1.trans horg, hclosed1, hmono, hopen,
-        htEv, htBuyer, htPaid, htB, htCS, htUS, ?_, ?_, ?_, ?_⟩ <;>
-        simp_all
+      refine ⟨hinv1, hcap1, hprice1, horg1.trans horg, hclosed1, hname1, hcs1, hus1, hb1, hmono,
+        hopen, ?_, htEv, htBuyer, htPaid, htB, htCS, htUS, ?_, ?_, ?_, ?_, ?_⟩ <;>
+        simp_all [Ticket.inv]
     | Err e =>
       obtain ⟨heq, -⟩ := hmatch
       try simp only [WP.spec_ok]
-      exact ⟨hinv1, hcap1, hprice1, horg1.trans horg, hclosed1, hmono, heq⟩
+      exact ⟨hinv1, hcap1, hprice1, horg1.trans horg, hclosed1, hname1, hcs1, hus1, hb1, hmono,
+        heq⟩
   · simp only [horg, decide_false, Bool.false_eq_true, reduceIte, if_false, bind_ok, bind_tc_ok,
       WP.spec_ok]
-    exact ⟨hinv', rfl, rfl, rfl, rfl, Nat.le_refl _, rfl⟩
+    exact ⟨hinv', rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, Nat.le_refl _, rfl⟩
 
 end ticketing_aeneas

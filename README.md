@@ -209,7 +209,9 @@ This is the layer the workshop swaps. A new prover gets its own program crate
 identical `src/flows` and `src/domain` core bodies re-expressed in its syntax,
 its own trusted shells, and a sibling `just` lane and proof-artifact directory
 alongside Creusot's - leaving the program's behavior byte-identical across
-prover crates.
+prover crates. Its specs must cover no less than the Creusot lane's (more is
+welcome); a clause is dropped only where the tool genuinely cannot state it,
+recorded in the lane report as an honest tool-limit cost.
 
 ### IDL and client
 

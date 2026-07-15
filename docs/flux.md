@@ -66,10 +66,13 @@ through:
 - **Frame conditions.** `record_sale` changes only `sold` (monotone up), the
   other fields pinned; `close_sales`/`close_event` change only `status`, with a
   legal `open -> closed` step (`legal_status`); `purchase` grows only `sold`.
-- **Bounded, overflow-free pricing.** `payment_for` is *total* (not `Result`):
-  `quantity <= capacity` and the invariant's `capacity * price <= u64::MAX` give
-  `quantity * price <= u64::MAX`, and both factors are positive, so the payment
-  is a valid `NonZeroU64` - no overflow branch survives.
+- **Bounded, overflow-free pricing, with the exact product.** `payment_for` is
+  *total* (not `Result`): its signature states the exact payment
+  `u64{p: p == q * ev.price && 0 < p}` for `0 < q <= ev.capacity`. The
+  product equality is checked by liquid typing of the built-in `*`; the fit
+  (`quantity * price <= u64::MAX`, from the invariant) and the positivity ride
+  the trusted `mul_le_mono`/`mul_pos` lemmas, so the payment is a valid
+  `NonZeroU64` and no overflow branch survives.
 - **The create-time economics guard is load-bearing.** `event_new` demands
   `capacity * price <= u64::MAX`, so `create_event` must run its overflow guard
   before an event can be constructed - the bound the invariant then carries for
@@ -173,13 +176,13 @@ unchanged" clauses the deductive lanes state are dropped.
   the opaque structs; and the `instructions/` shells are trusted like every
   lane. Verus's opaque `is_set` + `Address` equality carry over unchanged.
 - **The nonlinear bound is unbounded, like Verus/Creusot - but trusted, not
-  proved.** No `capacity <= u8` cap (contrast Kani). `record_sale`'s
-  `actual * price <= u64::MAX` and `payment_for`'s product bound come from the
-  `mul_le_mono` lemma over `int`. Verus *proves* the same step with one
-  `by (nonlinear_arith)` and Creusot's solver ensemble proved it with nothing in
-  the sources; Flux (here, without `core`'s specs) *trusts* the one-line lemma -
-  net, its nonlinear handling sits with Creusot's `ax_*` era, a notch below
-  Verus.
+  proved.** No `capacity <= u8` cap (contrast Kani). `payment_for`'s exact
+  product `p == q * ev.price` is *stated* in the signature and checked by liquid
+  typing, but its `u64` fit comes from the `mul_le_mono` lemma over `int`. Verus
+  *proves* the same step with one `by (nonlinear_arith)` and Creusot's solver
+  ensemble proved it with nothing in the sources; Flux (here, without `core`'s
+  specs) *trusts* the one-line lemma - net, its nonlinear handling sits with
+  Creusot's `ax_*` era, a notch below Verus.
 - **Refinement of foreign/std types is where the tool fought hardest.** The
   transparent-struct path (recursion + mandatory field indices), the generic
   `NonZero` refinement (`expected T::sort`), and the invisible `core`
@@ -202,9 +205,12 @@ unchanged" clauses the deductive lanes state are dropped.
   clamp value (`actual == min(requested, remaining)`), the `Ok <=> condition`
   discriminant characterization, and "on error, the event is unchanged" are
   dropped: the first needs `NonZeroU64` value tracking, the last two need
-  `Result` refinement - neither available here. What survives is the safety
-  core: invariant preservation, no overselling, bounded clamp, frames, legal
-  transitions.
+  `Result` refinement - neither available here (the exact *payment* product is
+  an exception: `payment_for` runs on `u64`, so its signature states `p == q *
+  ev.price`). What survives is the safety core: invariant preservation, no
+  overselling, bounded clamp, exact payment, frames, legal transitions. These
+  are the lane's honest tool-limit gaps against the coverage-`>=`-Creusot
+  ground rule ([provers.md](provers.md)).
 - **Arithmetic-overflow *checking* is not enabled.** `#![flux::opts(check_overflow
   = ..)]` is a `flux::` tool inner-attribute that a stable downstream crate
   cannot carry cleanly; the no-overflow property is instead established through

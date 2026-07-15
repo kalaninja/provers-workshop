@@ -3,6 +3,35 @@
 The dated chronology of [the prover roadmap](provers.md): what landed in each
 lane and what it taught, newest first.
 
+- **2026-07-15** - Cross-lane coverage audit against the Creusot baseline. The
+  audit (prompted by discovering that parts of the Aeneas port had tracked Flux
+  rather than the reference) found Kani and Verus at full parity, Flux's gaps
+  all documented tool limits, and four real holes in the Aeneas lane's Lean
+  specs: the ticket invariant and its `is_set` preconditions dropped (the only
+  lane missing them - even Flux keeps the invariant on the type), payment
+  positivity re-derived ad hoc at the `purchase` call site instead of stated,
+  frames missing `name`/slots/bump (`name` had no projection at all), and the
+  ticket-consistency clause (`quantity <= sold'`) unstated. All fixed in
+  `TicketingAeneasProofs.lean` - a new `evName` projection and `Ticket.inv`,
+  widened setter/constructor axioms (the ctors now carry the Creusot
+  constructors' `requires` as hypotheses, which also fixed a latent TCB
+  imprecision: `event_new`'s unconditional field equalities were false of the
+  real `nz_from` glue at zero), and the widened theorems re-proved - Lean-only,
+  no Rust change, `replay`-gated, negation spot-checked non-vacuous. Flux's
+  `payment_for` signature was strengthened to state the exact product
+  `p == q * ev.price && 0 < p` (the fit and positivity still trusted lemmas -
+  its documented limit). A design detour, tried and reverted: making
+  `payment_for` total in Creusot/Kani/Verus too (its `Err` is provably dead -
+  overflow is checked once at `create_event` and the invariant covers every
+  clamped quantity). It proved everywhere, but the total body must witness the
+  dead branch with an `expect`/`unreachable!` where the fallible shape just
+  returns the honest `Err` - so the contract lanes keep `Result`, and totality
+  stays the Flux/Aeneas idiom (no `Result` refinement downstream for Flux; the
+  `?` operator drags `Try`/`ControlFlow` scaffolding into the extracted Lean
+  model for Aeneas). The ground rule is now written down in
+  [provers.md](provers.md): every lane's spec coverage must be >= the Creusot
+  reference's; drop a clause only when the tool genuinely cannot state it, and
+  record the omission in the lane report.
 - **2026-07-14** - Aeneas lane wired up as a full program: a `ticketing-aeneas`
   crate (trusted `instructions/` shells + dispatcher + `entrypoint!` around the
   `flows/` cores and `domain/` accounting, the plainest source of any lane - no

@@ -47,31 +47,42 @@ the arithmetic Flux had to *trust* is *proved* here. All six cores carry
 machine-checked Lean contracts (`⦃ ⦄` total-correctness triples), mirroring the
 Creusot reference lane's coverage:
 
-- **`payment_for`** - `payment = quantity * price` with **no overflow**, for
-  `quantity <= capacity`. The nonlinear `quantity * price <= capacity * price <=
-  u64::MAX` step is proved from the event invariant by mathlib monotonicity
-  (`Nat.mul_le_mul_right`). *Flux trusts this as a `mul_le_mono` lemma; Verus
-  discharges it with one `by (nonlinear_arith)`; Aeneas proves it in Lean.*
+- **`payment_for`** - `payment = quantity * price`, **positive** (the explicit
+  conjunct standing in for the `NonZeroU64` return type Creusot carries) and
+  with **no overflow**, for positive `quantity <= capacity`. The function is
+  total here (as in Flux, unlike the contract lanes' fallible shape) - this
+  lane's extraction economics dictate it: the `?` operator drags the
+  `Try`/`ControlFlow` machinery into the Lean model, and the invariant's
+  `capacity * price <= u64::MAX` makes the error case dead anyway, so nothing
+  is lost by not having one. The nonlinear `quantity * price <= capacity *
+  price <= u64::MAX` step is proved from the event invariant by mathlib
+  monotonicity (`Nat.mul_le_mul_right`). *Flux trusts this as a `mul_le_mono`
+  lemma; Verus discharges it with one `by (nonlinear_arith)`; Aeneas proves it
+  in Lean.*
 - **`create_event`** - `Ok` yields an initial event **satisfying the invariant**
   (the invariant's base case); the error occurs **exactly when** `capacity *
   price` overflows `u64` (the `Ok`/`Err` discriminant, via a modeled
   `checked_mul`). *Flux drops this characterization.*
 - **`record_sale`** - preserves the event invariant (so `sold <= capacity` is
-  maintained - **no overselling**), changes only `sold`, returns the **exact
-  positive clamp** `min(requested, capacity - sold)`, grows `sold` by exactly
-  that quantity, succeeds exactly when sales are open with headroom left (on
-  error the event is unchanged and either sales were closed or `sold =
-  capacity`). The no-oversell guard rides `set_sold`'s trusted precondition
-  (`v <= capacity`), discharged from the clamp.
+  maintained - **no overselling**), changes only `sold` (every other modeled
+  projection - organizer, capacity, price, status, name, slots, bump - is
+  pinned), returns the **exact positive clamp** `min(requested, capacity -
+  sold)`, grows `sold` by exactly that quantity, succeeds exactly when sales are
+  open with headroom left (on error the event is unchanged and either sales were
+  closed or `sold = capacity`). The no-oversell guard rides `set_sold`'s trusted
+  precondition (`v <= capacity`), discharged from the clamp.
 - **`close_sales`** and **`close_event`** - preserve the invariant, change only
-  `status` (`open -> closed`), authenticate the organizer (`close_event`), and on
-  error leave the event unchanged (the exact `Ok <=> organizer ∧ open`
-  discriminant).
-- **`purchase`** (ticket_buy) - the **end-to-end composition**: invariant
-  preserved, only `sold` changes and grows by exactly the ticket's clamped
-  quantity, the organizer is authenticated, the ticket pins the
-  event/buyer/payment/bump/slots (the analog of Creusot's `is_initial`), the
-  payment is exactly `quantity * price`, and on error the event is unchanged.
+  `status` (`open -> closed`; every other modeled projection is pinned),
+  authenticate the organizer (`close_event`), and on error leave the event
+  unchanged (the exact `Ok <=> organizer ∧ open` discriminant).
+- **`purchase`** (ticket_buy) - the **end-to-end composition**, under Creusot's
+  `is_set` preconditions on the event/buyer addresses: invariant preserved, only
+  `sold` changes and grows by exactly the ticket's clamped quantity, the
+  organizer is authenticated, the ticket carries the **ticket invariant** (event
+  and buyer references set) and pins the event/buyer/payment/bump/slots (the
+  analog of Creusot's `is_initial`, invariant included), the ticket is
+  consistent with the updated event (`quantity <= sold'`), the payment is
+  exactly `quantity * price` (positive), and on error the event is unchanged.
 
 ## Trusted surface
 
@@ -82,13 +93,20 @@ that the proofs equip with trusted `@[step]`/`@[simp]` specs - the declared TCB,
 the analog of Flux's `#[extern_spec]`s and Creusot's `#[trusted]` shims:
 
 - logical projections of the opaque `Event` (organizer/slots/capacity/price/sold/
-  bump/closed) and `Ticket` (event/buyer/paid/quantity/bump/slots), plus the
-  `Event.inv` predicate;
+  name/bump/closed) and `Ticket` (event/buyer/paid/quantity/bump/slots), plus the
+  `Event.inv` and `Ticket.inv` predicates. Of the wire fields only
+  `header`/`_reserved` are unmodeled - the self-referential `AccountHeader` and
+  padding that force the types opaque in the first place;
 - accessor specs (`get_capacity`/`get_price`/`get_sold`/`is_open`/`organizer_eq`);
-- setter specs with frame + update, incl. `set_sold`'s load-bearing `v <=
-  capacity` no-oversell precondition, and `set_status_closed`;
+- setter specs with frame + update over every modeled projection, incl.
+  `set_sold`'s load-bearing `v <= capacity` no-oversell precondition, and
+  `set_status_closed`;
 - constructor specs: `event_new` and `ticket_new` pin every projection of the
-  fresh value (the analog of Creusot's `is_initial` postconditions);
+  fresh value (the analog of Creusot's `is_initial` postconditions) and carry
+  the Creusot constructors' `requires` as hypotheses (`is_set` organizer /
+  addresses, positive bounded economics - which also keeps `event_new` honest
+  about the glue's `nz_from` re-materialization, false of the real code at
+  zero);
 - the `NonZeroU64 <-> u64` bridges (`nz_get`/`nz_from`, incl. `nz_from`'s
   identity-on-positives spec backing its dead `None` arm) and `Address`
   `is_set`/eq.
