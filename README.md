@@ -43,7 +43,7 @@ identical contracts.
 | 5 | [Aeneas](https://github.com/AeneasVerif/aeneas) | functional translation to Lean | wired up |
 | 6 | [hax](https://github.com/cryspen/hax) | translation to F* / Rocq / Lean | queued |
 | 7 | [VeriFast](https://github.com/verifast/verifast) | separation logic | on hold |
-| 8 | [Prusti](https://github.com/viperproject/prusti-dev) | deductive, Viper backend | on hold |
+| 8 | [Prusti](https://github.com/viperproject/prusti-dev) | deductive, Viper backend | blocked - edition 2024 / resolver 3 unsupported |
 
 Creusot, Kani, Verus, Flux, and Aeneas are wired up today. The ordering
 rationale, integration ground rules, and the running comparison live in the

@@ -9,7 +9,7 @@ each wired lane gets a full report of its own next to this file
 ([creusot.md](creusot.md), [kani.md](kani.md)), and the dated chronology lives
 in [status-log.md](status-log.md).
 
-Statuses and tool facts below are point-in-time. **Last reviewed: 2026-07-13.**
+Statuses and tool facts below are point-in-time. **Last reviewed: 2026-07-16.**
 Re-verify a tool's state (releases, toolchain pins, open blockers) before
 starting its lane.
 
@@ -24,7 +24,7 @@ starting its lane.
 | 5 | [Aeneas](https://github.com/AeneasVerif/aeneas) | functional translation to Lean, interactive proofs | wired up - [report](aeneas.md) |
 | 6 | [hax](https://github.com/cryspen/hax) | translation to F* / Rocq / Lean | planned |
 | 7 | [VeriFast](https://github.com/verifast/verifast) | separation logic | on hold - target-fit question |
-| 8 | [Prusti](https://github.com/viperproject/prusti-dev) | deductive, Viper backend | on hold - likely toolchain-blocked |
+| 8 | [Prusti](https://github.com/viperproject/prusti-dev) | deductive, Viper backend | blocked - edition 2024 / resolver 3 unsupported |
 
 The order runs from cheap integration to expensive, and every step adds a new
 paradigm instead of a second data point in one we already have: bounded model
@@ -32,8 +32,8 @@ checking (Kani), an SMT-checked dialect (Verus), refinement types (Flux), then
 translation into an interactive theorem prover (Aeneas, and hax to compare
 pipelines). Kani first also produces the second column of the comparison table
 fastest. The two riskiest entries sit at the tail: VeriFast because its sweet
-spot may not be this repo's verified layer at all, Prusti because it likely
-cannot build the workspace anymore.
+spot may not be this repo's verified layer at all, Prusti because its stale
+Rust/Cargo toolchain cannot parse the workspace manifest.
 
 ## Ground rules - what every lane must provide
 
@@ -101,8 +101,8 @@ Columns fill in as lanes land.
 | Proof / replay speed | tbd (time `just creusot verify` / `replay`) | ~310s wall-clock from scratch (`-j` parallel harnesses; bounded by the dispatcher's ~300s, `purchase` ~210s, others 32-54s); no replay | fast (`11 verified` in seconds of solver time); re-verifies from scratch, no replay | ~0.2s from scratch (`8 checked`, 58 constraints; liquid-fixpoint + Z3); re-verifies each run, no replay | `verify` slow (Charon rebuilds a MIR-linkable sysroot each run - minutes); `replay` re-checks the committed Lean in seconds (`lean` against prebuilt oleans). Proof-*authoring* is the highest of the roster | - | - | - |
 | Artifact story | 23 `proof.json` sessions under `verif/`, deterministic replay in pre-push | none committed - re-verifies from scratch every run | none committed - re-verifies from scratch (fast SMT queries) | none committed - re-verifies from scratch (specs are inline attributes) | **best of the roster**: committed Lean (the generated model + the hand proofs) under `verif/ticketing_aeneas/`, deterministically re-checked by `just aeneas replay` in pre-push | - | - | - |
 | Code bending | none in core bodies; extension-trait plumbing for foreign impls | cores call std directly (no axiom shims); predicates are `#[cfg(kani)]` bool fns on hand-written `*Ops` traits; PODs built field-by-field | low - the cores are written inside `verus!{}` and the proc-macro erases the ghost layer outside `cargo verus`, so the same source builds host+SBF like the siblings; residual bending is free `fn`s instead of `*Ops` traits, one `by (nonlinear_arith)` hint, and the verify recipe forcing `--cfg feature="nonzero_internals"` (vstd ships its `NonZero` model behind an undeclared feature) | moderate-high: `Event`/`Ticket` opaque, so cores read/write via trusted accessors (transparent extern-specs can't take the wire structs' padding + self-referential header); `NonZeroU64` bridged to `u64`, so accounting is `u64` and the exact clamp quantity is dropped; plain built-in `+`/`-`/`*` + a `mul_fits` guard replace `checked_*` (flux-core std specs invisible downstream). Offsetting win: no loop invariants or proof blocks, and plain rustfmt/clippy/rust-analyzer reach the whole crate (no verusfmt analog) | the *least* bending in the crate: the cores are ordinary Rust with no in-source spec at all, so host+SBF build the plainest source of any lane. The bending is *outside* the crate - the Charon config (`start_from`/`opaque`, `--sysroot default` to link the cdylib) and the separate Lean model + trusted glue specs. `NonZeroU64` kept out of the extracted cores (opaque), so accounting is `u64` like Flux | - | - | - |
-| Toolchain fit | own nightly (2026-04-21) + opam-built Why3/solvers; the heaviest image | self-contained bundle: kani-verifier 0.67.0 (mise cargo backend) + CBMC/kissat via `cargo kani setup`; light image | release bundle (verus `0.2026.07.12` rolling + bundled Z3 4.12.5, mise github backend) over a pinned stable 1.96.0 rustup toolchain; needs glibc >= 2.39 so its base is trixie not the shared bookworm; `vstd` pinned from crates.io (newest, `2026-07-12`); no stable release newer than 07-05 yet, re-pin when one lands | built from source (`cargo xtask install`) at a pinned git rev - no release/crate/rustup component; pins but does not ship nightly-2025-11-25 (rustc-dev/rust-src/llvm-tools via rustup); Z3 4.16 (glibc-2.39) + liquid-fixpoint (floating `nightly` tag) pinned via mise github backends, so its base is trixie like Verus | the heaviest lane: opam-built Charon+Aeneas (pinned commits, Charon via Aeneas's `charon-pin`) + a Lean `v4.31.0`/elan toolchain + the mathlib tree (prebuilt cache, not compiled). Stays on bookworm. Not hermetic through `lake` (re-clones mathlib), so checked via `lean` + `LEAN_PATH` against the baked oleans; the cdylib forces `charon --sysroot default` | - | - | - |
-| Maintenance | active, research-led (v0.12.0 pinned) | active (AWS); drives the std verification campaign | active, research-led (weekly releases; drives a Rust std-verification effort) | active, research-led (UCSD); no tagged releases - git-HEAD only | active, research-led (Inria/AeneasVerif; Microsoft uses it for the SymCrypt Rust port). No semantic releases - dated `nightly-*` tags only, Charon pinned via Aeneas's `charon-pin` | - | - | - |
+| Toolchain fit | own nightly (2026-04-21) + opam-built Why3/solvers; the heaviest image | self-contained bundle: kani-verifier 0.67.0 (mise cargo backend) + CBMC/kissat via `cargo kani setup`; light image | release bundle (verus `0.2026.07.12` rolling + bundled Z3 4.12.5, mise github backend) over a pinned stable 1.96.0 rustup toolchain; needs glibc >= 2.39 so its base is trixie not the shared bookworm; `vstd` pinned from crates.io (newest, `2026-07-12`); no stable release newer than 07-05 yet, re-pin when one lands | built from source (`cargo xtask install`) at a pinned git rev - no release/crate/rustup component; pins but does not ship nightly-2025-11-25 (rustc-dev/rust-src/llvm-tools via rustup); Z3 4.16 (glibc-2.39) + liquid-fixpoint (floating `nightly` tag) pinned via mise github backends, so its base is trixie like Verus | the heaviest lane: opam-built Charon+Aeneas (pinned commits, Charon via Aeneas's `charon-pin`) + a Lean `v4.31.0`/elan toolchain + the mathlib tree (prebuilt cache, not compiled). Stays on bookworm. Not hermetic through `lake` (re-clones mathlib), so checked via `lean` + `LEAN_PATH` against the baked oleans; the cdylib forces `charon --sysroot default` | - | - | blocked before compilation: the 2023 release bundle uses Rust/Cargo 1.73 and rejects this workspace's resolver 3 manifest |
+| Maintenance | active, research-led (v0.12.0 pinned) | active (AWS); drives the std verification campaign | active, research-led (weekly releases; drives a Rust std-verification effort) | active, research-led (UCSD); no tagged releases - git-HEAD only | active, research-led (Inria/AeneasVerif; Microsoft uses it for the SymCrypt Rust port). No semantic releases - dated `nightly-*` tags only, Charon pinned via Aeneas's `charon-pin` | - | - | latest release 2023-08-22; default branch last changed 2024-03-26 and still pins a 2023 nightly |
 
 ## Prover notes
 
@@ -348,18 +348,35 @@ zero-copy wire casts* (the bytemuck layer) - extending the verified surface
 rather than re-proving the same contracts. Whether to widen the workshop's
 scope that way is the decision to make when its turn comes.
 
-### 8. Prusti - on hold
+### 8. Prusti - blocked
 
 [Prusti](https://github.com/viperproject/prusti-dev) (ETH Zurich) verifies
 annotated Rust through the Viper infrastructure. Kept on the roster
 deliberately, but development has stalled and it is absent from the std
-campaign; its pinned toolchain predates edition 2024, so it most likely cannot
-build this workspace (edition 2024, resolver 3) at all.
+campaign. The latest
+[release](https://github.com/viperproject/prusti-dev/releases/tag/v-2023-08-22-1715)
+is from 2023-08-22 and bundles `nightly-2023-08-15` (Rust/Cargo 1.73); the
+default branch last changed on 2024-03-26 and still pins
+[`nightly-2023-09-15`](https://github.com/viperproject/prusti-dev/blob/master/rust-toolchain).
+Both toolchains predate edition 2024 and Cargo resolver 3.
 
-Before any real investment: a cheap spike - point it at the workspace and
-record the exact failure here. If it ever unblocks, its value is a
-syntax/ergonomics comparison against Creusot, since both are deductive and
-annotation-based.
+The required compatibility spike was run against this workspace on
+2026-07-16 with the official Ubuntu release. `cargo-prusti` stopped while
+parsing the root manifest, before compiling any crate or invoking Viper:
+
+```text
+error: failed to parse manifest at `Cargo.toml`
+
+Caused by:
+  `resolver` setting `3` is not valid, valid options are "1" or "2"
+```
+
+There is therefore no `ticketing-prusti` crate or Prusti Docker/mise/just
+lane. Downgrading the workspace or making an isolated edition-2021 toy would
+no longer test the same modern Solana program and is out of scope. Revisit
+Prusti only after an upstream release or maintained fork supports edition
+2024 and resolver 3; if that happens, its value remains a syntax/ergonomics
+comparison against Creusot, since both are deductive and annotation-based.
 
 ## Considered and dropped
 

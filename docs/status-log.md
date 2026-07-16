@@ -3,6 +3,16 @@
 The dated chronology of [the prover roadmap](provers.md): what landed in each
 lane and what it taught, newest first.
 
+- **2026-07-16** - Prusti compatibility spike closed the lane as toolchain-blocked.
+  The latest official Ubuntu release (`v-2023-08-22-1715`) bundles
+  `nightly-2023-08-15` (Rust/Cargo 1.73), while the default branch has not
+  changed since 2024-03-26 and still pins a 2023 nightly. Pointed at the current
+  edition-2024/resolver-3 workspace, `cargo-prusti` fails before compilation:
+  ``resolver setting `3` is not valid, valid options are "1" or "2"``. No
+  `ticketing-prusti` crate or Docker/mise/just lane was added: downgrading the
+  workspace or proving an isolated legacy toy would break the same-program
+  comparison. Revisit only when an upstream release or maintained fork supports
+  edition 2024 and resolver 3.
 - **2026-07-15** - Cross-lane coverage audit against the Creusot baseline. The
   audit (prompted by discovering that parts of the Aeneas port had tracked Flux
   rather than the reference) found Kani and Verus at full parity, Flux's gaps
