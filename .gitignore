@@ -28,5 +28,5 @@
 # Local logs
 *.log
 
-# Separate git repo for articles (versioned independently)
-/articles/
+# Separate git repo for talks and articles (versioned independently)
+/materials/
