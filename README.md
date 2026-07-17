@@ -41,12 +41,13 @@ identical contracts.
 | 3 | [Verus](https://github.com/verus-lang/verus) | SMT over a verification dialect of Rust | wired up |
 | 4 | [Flux](https://github.com/flux-rs/flux) | refinement (liquid) types | wired up |
 | 5 | [Aeneas](https://github.com/AeneasVerif/aeneas) | functional translation to Lean | wired up |
-| 6 | [hax](https://github.com/cryspen/hax) | translation to F* / Rocq / Lean | queued |
+| 6 | [hax](https://github.com/cryspen/hax) | translation to F* / Rocq / Lean | scaffolded - Lean smoke proof |
 | 7 | [VeriFast](https://github.com/verifast/verifast) | separation logic | on hold |
 | 8 | [Prusti](https://github.com/viperproject/prusti-dev) | deductive, Viper backend | blocked - edition 2024 / resolver 3 unsupported |
 
-Creusot, Kani, Verus, Flux, and Aeneas are wired up today. The ordering
-rationale, integration ground rules, and the running comparison live in the
+Creusot, Kani, Verus, Flux, and Aeneas are wired up today; the hax-to-Lean
+toolchain and a non-vacuous smoke proof are scaffolded, with real cores next.
+The ordering rationale, integration ground rules, and the running comparison live in the
 roadmap index [docs/provers.md](docs/provers.md); each wired lane has a full
 report next to it ([docs/creusot.md](docs/creusot.md),
 [docs/kani.md](docs/kani.md), [docs/verus.md](docs/verus.md),
@@ -73,13 +74,14 @@ Three instructions over two PDA-backed accounts:
 - Docker (with BuildKit)
 - [`just`](https://github.com/casey/just)
 
-Everything else - Rust (stable + two pinned nightlies), the Agave/SBF
+Everything else - pinned Rust toolchains, the Agave/SBF
 toolchain, node/pnpm for codegen, the verifiers and their solvers - lives in
 the tooling images built from the repo's `Dockerfile`. Every tool mise has a
 backend for is pinned in `mise*.toml` (toolchains, Agave, kani-verifier, the
-Verus bundle, verusfmt); the `Dockerfile` owns the rest (apt packages, the
-pinned mise itself, Creusot's opam build, Kani's setup bundle, SBF
-platform-tools).
+Verus bundle, verusfmt, cargo-hax, the hax driver/Rust engine, elan); the
+`Dockerfile` owns the rest (apt packages, the pinned mise itself, Creusot's
+opam build, Kani's setup bundle, SBF platform-tools, hax's isolated opam-built
+protocol helper, and the pinned hax Lean proof library).
 Images build on demand the first time a recipe needs them; the Creusot image
 is the slow one (it compiles Why3 and the provers through opam - expect tens
 of minutes once).
@@ -113,6 +115,9 @@ just flux verify             # refinement-type-check the cores (Flux -> fixpoint
 just aeneas verify           # extract (Charon) -> translate (Aeneas) -> check the Lean proofs
 just aeneas replay           # deterministically re-check the committed Lean proofs (pre-push)
 
+just hax verify              # extract Rust -> Lean and compile the inline smoke proof
+just hax version             # show the pinned hax engine and Lean versions
+
 just init-hooks              # wire the repo-tracked pre-push hook into this clone
 ```
 
@@ -120,20 +125,21 @@ just init-hooks              # wire the repo-tracked pre-push hook into this clo
 
 ```
 mise/config.toml            tool pins (stable Rust, just, nextest, node, pnpm)
-mise/config.<env>.toml      per-lane overlays: nightly, solana, creusot, kani, verus, flux, aeneas (MISE_ENV=<env>)
-Dockerfile                  tooling stages: base / rust / node / solana / creusot / kani / verus / flux / aeneas
+mise/config.<env>.toml      per-lane overlays: nightly, solana, creusot, kani, verus, flux, aeneas, hax (MISE_ENV=<env>)
+Dockerfile                  tooling stages: base / rust / node / solana / creusot / kani / verus / flux / aeneas / hax
 scripts/docker/run-tooling.sh   docker-run wrapper every recipe goes through
-scripts/hooks/pre-push      change-scoped checks (rust lane, creusot replay)
-just/                       recipe modules (rust, solana, creusot, kani, verus, flux, aeneas, tooling)
+scripts/hooks/pre-push      change-scoped checks (Rust + each verifier lane)
+just/                       recipe modules (rust, solana, creusot, kani, verus, flux, aeneas, hax, tooling)
 
 crates/ticketing/interface  wire layer: byte layouts + program-side helpers (shared by all provers)
 crates/ticketing/creusot    the Creusot program crate: trusted shells + verified cores (one crate per prover)
+crates/ticketing/hax        hax-to-Lean lane scaffold: one inline smoke contract/proof
 crates/ticketing/client     codama-rendered Rust client + handwritten checked decoders
 crates/ticketing/macros     proc-macros: creusot_extension, codegen derives, no-op codama stand-ins
 
 idl/ticketing.json          committed codama IDL (regenerated via `just solana gen-idl`)
 clients/                    codama-js codegen harness (runs in the node image)
-verif/                      committed proof sessions per prover crate (verif/ticketing_creusot_rlib, one proof.json per VC)
+verif/                      proof projects/sessions (hax extraction is generated and ignored)
 why3find.json               prover configuration (alt-ergo, z3, cvc5 + tactics)
 docs/provers.md             prover roadmap index: roster, order, running comparison, summaries
 docs/<prover>.md            full per-lane reports (creusot.md, kani.md)
@@ -149,8 +155,8 @@ docs/status-log.md          dated chronology of the workshop
 matching tooling image with the repo mounted at `/workspace`, your UID/GID,
 and per-repo caches under `.cache/`. Inside the container, binaries resolve
 through `mise exec` against the committed `mise*.toml` pins - `MISE_ENV`
-selects the overlay (`nightly` for rustfmt, `solana` for Agave, `creusot` for
-the verifier's nightly). Tools are baked into the images at build time
+selects the overlay (`nightly` for rustfmt, `solana` for Agave, or a prover name
+such as `creusot`/`hax`). Tools are baked into the images at build time
 (`MISE_EXEC_AUTO_INSTALL=false`), so a recipe either runs the pinned tool or
 fails loudly.
 

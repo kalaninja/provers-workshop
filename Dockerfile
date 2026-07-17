@@ -226,6 +226,133 @@ RUN command -v cargo-flux && command -v flux \
     && MISE_ENV=flux mise exec -- sh -c 'command -v z3 && command -v fixpoint' \
     && MISE_ENV=flux mise exec -- rustup which --toolchain nightly-2025-11-25 cargo
 
+FROM tooling-base AS hax-rust-base
+
+# hax extracts Rust through its rustc driver, translates the resulting model with its Rust engine,
+# and emits Lean. All published hax binaries + the matching nightly are pinned by mise; elan owns the
+# Lean toolchain. This reusable stage also supplies hax-export-json-schemas to the OCaml builder:
+# hax-engine uses it while generating its universe hash.
+COPY mise/config.hax.toml ./mise/config.hax.toml
+
+ENV ELAN_HOME=/opt/hax/elan
+ENV PATH=/opt/hax/elan/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+ARG HAX_REV=d8b5b3d3b666fee8943a351445d2b680105e8ea3
+ARG HAX_LEAN_TOOLCHAIN=leanprover/lean4:v4.29.0-rc1
+
+RUN --mount=type=secret,id=github_token \
+    export GITHUB_TOKEN="$(cat /run/secrets/github_token 2>/dev/null || true)" \
+    && mise install -E hax rust \
+    && mise install -E hax \
+        "cargo:cargo-hax" \
+        "cargo:hax-driver" \
+        "cargo:hax-rust-engine" \
+        "ubi:leanprover/elan" \
+    && mkdir -p /opt/hax \
+    && chmod -R a+rwX /opt/hax /opt/cargo /opt/mise /opt/rustup
+
+# cargo-hax's released launcher expects its sibling protocol workers next to its own executable (the
+# layout of upstream's bundled install). mise's cargo backend intentionally isolates each package,
+# so recreate that layout with symlinks while retaining independent, exact package pins.
+RUN MISE_ENV=hax mise exec -- bash -c 'set -euo pipefail \
+    && bin="$(dirname "$(command -v cargo-hax)")" \
+    && ln -sf "$(command -v driver-hax-frontend-exporter)" "${bin}/driver-hax-frontend-exporter" \
+    && ln -sf "$(command -v hax-rust-engine)" "${bin}/hax-rust-engine"'
+
+FROM hax-rust-base AS hax-names-builder
+
+# The OCaml engine's universe hash also needs this source-only Rust helper. It is not published on
+# crates.io at v0.3.7, so build it from the same pinned hax commit as the engine and Lean library.
+ARG HAX_REV=d8b5b3d3b666fee8943a351445d2b680105e8ea3
+
+RUN --mount=type=secret,id=github_token \
+    export GITHUB_TOKEN="$(cat /run/secrets/github_token 2>/dev/null || true)" \
+    && git clone https://github.com/cryspen/hax /opt/hax-names-src \
+    && (cd /opt/hax-names-src && git checkout "${HAX_REV}") \
+    && MISE_ENV=hax mise exec -- cargo install --locked \
+        --path /opt/hax-names-src/engine/names/extract
+
+FROM tooling-base AS hax-ocaml-builder
+
+# hax-rust-engine is the Lean backend, but at v0.3.7 it still delegates THIR import and shared
+# phases to the legacy OCaml hax-engine over a JSON protocol. Build that one required helper in an
+# isolated stage so opam, the OCaml compiler, and build dependencies do not enter the runtime image.
+ENV OPAMROOT=/opt/hax-ocaml/opam
+ENV OPAMYES=1
+ENV OPAMCONFIRMLEVEL=unsafe-yes
+
+ARG HAX_REV=d8b5b3d3b666fee8943a351445d2b680105e8ea3
+
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends \
+        autoconf \
+        libgmp-dev \
+        m4 \
+        nodejs \
+        opam \
+        rsync \
+        zlib1g-dev \
+    && opam init --bare --disable-sandboxing --yes \
+    && opam switch create 5.1.1 ocaml-base-compiler.5.1.1 --yes \
+    && rm -rf /var/lib/apt/lists/*
+
+# hax-engine's build hashes the Rust/OCaml schema universe with this cargo-hax companion binary.
+COPY --from=hax-rust-base \
+    /opt/mise/installs/cargo-cargo-hax/0.3.7/bin/hax-export-json-schemas \
+    /usr/local/bin/hax-export-json-schemas
+
+RUN --mount=type=secret,id=github_token \
+    export GITHUB_TOKEN="$(cat /run/secrets/github_token 2>/dev/null || true)" \
+    && git clone https://github.com/cryspen/hax /opt/hax/src \
+    && (cd /opt/hax/src && git checkout "${HAX_REV}")
+
+# Cache the large opam dependency graph separately from hax-engine itself.
+RUN eval "$(opam env --switch=5.1.1)" \
+    && export OPAMJOBS=4 OPAMERRLOGLEN=0 OPAMASSUMEDEPEXTS=1 OCAMLRUNPARAM=o=20 \
+    && opam install --deps-only --yes /opt/hax/src/engine
+
+COPY --from=hax-names-builder \
+    /opt/cargo/bin/hax-engine-names-extract \
+    /usr/local/bin/hax-engine-names-extract
+
+RUN eval "$(opam env --switch=5.1.1)" \
+    && export OPAMJOBS=4 OPAMERRLOGLEN=0 OPAMASSUMEDEPEXTS=1 OCAMLRUNPARAM=o=20 \
+    && (ulimit -s hard 2>/dev/null || ulimit -s unlimited 2>/dev/null || true) \
+    && opam install --yes /opt/hax/src/engine \
+    && install -m 0755 "$(opam var bin)/hax-engine" /opt/hax-ocaml/hax-engine \
+    && test -x /opt/hax-ocaml/hax-engine
+
+FROM hax-rust-base AS hax-tooling
+
+# Bring in only the pinned source tree (for the Lean proof library) and native OCaml protocol
+# helper. The final image contains neither opam nor the OCaml compiler used to build it.
+COPY --from=hax-ocaml-builder /opt/hax/src /opt/hax/src
+COPY --from=hax-ocaml-builder /opt/hax-ocaml/hax-engine /usr/local/bin/hax-engine
+
+ARG HAX_LEAN_TOOLCHAIN=leanprover/lean4:v4.29.0-rc1
+
+# mise's ubi backend installs elan as a bare binary, so it does not create lean/lake proxy shims.
+# Link the real binaries from the exact downloaded toolchain, as in the Aeneas stage below. Keeping
+# provisioning separate from the proof-library build also preserves this expensive layer on failure.
+RUN --mount=type=secret,id=github_token \
+    export GITHUB_TOKEN="$(cat /run/secrets/github_token 2>/dev/null || true)" \
+    && MISE_ENV=hax mise exec -- elan toolchain install "${HAX_LEAN_TOOLCHAIN}" \
+    && tc="$(ls -d /opt/hax/elan/toolchains/*/ | head -n1)" \
+    && for b in lean lake leanc; do ln -sf "${tc}bin/${b}" "/usr/local/bin/${b}"; done \
+    && lean --version
+
+RUN --mount=type=secret,id=github_token \
+    export GITHUB_TOKEN="$(cat /run/secrets/github_token 2>/dev/null || true)" \
+    && MISE_ENV=hax mise exec -- bash -c \
+        'cd /opt/hax/src/hax-lib/proof-libs/lean && lake build' \
+    && chmod -R a+rwX /opt/hax /opt/cargo /opt/mise /opt/rustup
+
+# Cheap self-test in a separate layer so the installs and Lean library build above remain cached.
+RUN MISE_ENV=hax mise exec -- cargo hax --version \
+    && MISE_ENV=hax mise exec -- sh -c 'command -v hax-rust-engine' \
+    && command -v hax-engine \
+    && lean --version
+
 FROM tooling-base AS aeneas-tooling
 
 # The heaviest lane, and the most structurally different: Aeneas does not check Rust in place. Charon

@@ -19,6 +19,9 @@ mod flux 'just/flux.just'
 # Interactive-proof (Charon -> Aeneas -> Lean) commands (Aeneas)
 mod aeneas 'just/aeneas.just'
 
+# Translation-to-Lean commands (hax)
+mod hax 'just/hax.just'
+
 # Tooling commands
 mod tooling 'just/tooling.just'
 

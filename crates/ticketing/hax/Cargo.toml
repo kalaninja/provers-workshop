@@ -1,0 +1,19 @@
+[package]
+name = "ticketing-hax"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# The first hax commit deliberately contains only a verifier smoke target. The real Pinocchio
+# program and its decision cores arrive in the wire-up commit once the extraction boundary is known.
+[lib]
+crate-type = ["lib"]
+
+[lints]
+workspace = true
+
+# hax sets cfg(hax) while extracting. Ordinary workspace builds therefore do not compile or carry
+# the verifier facade; the executable function below remains plain Rust.
+[target.'cfg(hax)'.dependencies]
+hax-lib = "=0.3.7"

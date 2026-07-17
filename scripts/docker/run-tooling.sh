@@ -50,6 +50,13 @@ if [[ "${MISE_ENV:-}" == "flux" ]]; then
   extra_env+=(--env "FLUX_SYSROOT=/opt/flux")
 fi
 
+# hax's elan-managed Lean toolchain and the prebuilt Hax proof library live under /opt/hax in the
+# hax-tooling stage. The frontend/driver/engine and matching Rust nightly resolve through mise;
+# only ELAN_HOME must survive the per-run HOME rewrite.
+if [[ "${MISE_ENV:-}" == "hax" ]]; then
+  extra_env+=(--env "ELAN_HOME=/opt/hax/elan")
+fi
+
 # Aeneas bakes its opam switch, Charon/Aeneas binaries, and elan-managed Lean toolchain (with the
 # built Aeneas + mathlib Lean packages) under /opt/aeneas (aeneas-tooling stage); point HOME/XDG/
 # OPAMROOT/ELAN_HOME there so opam, dune, and lean/lake resolve despite the per-run HOME/XDG rewrite.

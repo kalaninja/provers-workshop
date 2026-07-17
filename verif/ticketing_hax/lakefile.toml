@@ -1,0 +1,16 @@
+# Lean project descriptor for editors. `just hax verify` regenerates `extraction/` from the Rust
+# crate and invokes Lean directly against the image's baked Hax/Qq oleans (Lake would re-clone Qq);
+# the inline `hax_lib::lean::proof` attached to the Rust function is the source artifact.
+name = "ticketing_hax"
+version = "0.1.0"
+defaultTargets = ["ticketing_hax"]
+
+# The exact hax source revision baked into hax-tooling supplies both the Hax proof library and its
+# already-built quote4 dependency. Keeping this a local path makes verification network-free.
+[[require]]
+name = "Hax"
+path = "/opt/hax/src/hax-lib/proof-libs/lean"
+
+[[lean_lib]]
+name = "ticketing_hax"
+roots = ["extraction.ticketing_hax"]

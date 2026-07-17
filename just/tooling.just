@@ -45,6 +45,11 @@ build-verus: (_build "verus-tooling" verus_tooling_image "--build-arg TOOLING_BA
 # release asset needs glibc >= 2.39 (bookworm has 2.36).
 build-flux: (_build "flux-tooling" flux_tooling_image "--build-arg TOOLING_BASE_IMAGE=debian:trixie-slim")
 
+# Build the hax-to-Lean tooling image (published cargo frontend/driver/Rust engine, the matching
+# nightly, elan/Lean, the native OCaml protocol helper, and hax's prebuilt Lean proof library).
+# Stays on bookworm; opam/OCaml exist only in the isolated helper-builder stage.
+build-hax: (_build "hax-tooling" hax_tooling_image)
+
 # Build the Aeneas interactive-proof tooling image (Charon + Aeneas built from source via opam, plus
 # a Lean/elan toolchain and the mathlib-backed Aeneas Lean library). The heaviest lane; stays on
 # bookworm (Lean/elan and the rustup nightly support glibc 2.36).

@@ -3,6 +3,25 @@
 The dated chronology of [the prover roadmap](provers.md): what landed in each
 lane and what it taught, newest first.
 
+- **2026-07-17** - hax-to-Lean lane scaffolded: a separate `ticketing-hax`
+  library with one non-vacuous inline contract/proof, `MISE_ENV=hax` pins
+  `cargo-hax`/`hax-driver`/`hax-rust-engine` `0.3.7` and upstream's
+  `nightly-2025-11-08`, and a bookworm `hax-tooling` image installs elan `4.2.3`
+  + Lean `v4.29.0-rc1` and prebuilds the hax Lean proof library at the exact
+  release commit (`d8b5b3d`). `just hax verify` now drives Rust extraction,
+  Lean emission, and direct Lean checking against baked Hax/Qq oleans (a clean
+  `lake build` re-clones quote4); the pre-push hook scopes that end-to-end check
+  to hax changes. The key scaffold finding corrected the initial architecture:
+  Lean does run through `hax-rust-engine`, but at `0.3.7` it still delegates
+  shared import/phases to native OCaml `hax-engine`. A multi-stage builder uses
+  upstream's OCaml `5.1.1` plus the two required Rust schema/name generators,
+  then copies only the engine binary into the final image - opam/compiler stay
+  behind. Unlike Aeneas and Creusot, generated proof output is not committed:
+  the proof lives inline in Rust and the Lean extraction is cleanly regenerated
+  on every run. The smoke
+  boundary is mutation-tested (`x < 16` passes; `x < 17` exposes `16 * 16`
+  wrapping to zero and fails). Real ticketing cores, SBF integration, and the
+  full lane report are intentionally deferred to the wire-up commit.
 - **2026-07-16** - Prusti compatibility spike closed the lane as toolchain-blocked.
   The latest official Ubuntu release (`v-2023-08-22-1715`) bundles
   `nightly-2023-08-15` (Rust/Cargo 1.73), while the default branch has not

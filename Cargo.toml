@@ -54,4 +54,4 @@ struct_field_names = "allow"
 pub_underscore_fields = "allow"
 
 [workspace.lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))', 'cfg(creusot)', 'cfg(kani)', 'cfg(flux)'] }
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))', 'cfg(creusot)', 'cfg(kani)', 'cfg(flux)', 'cfg(hax)'] }

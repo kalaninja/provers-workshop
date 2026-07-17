@@ -21,20 +21,22 @@
   stand-ins
 - `idl/ticketing.json` - committed codama IDL, regenerated via `just solana gen-idl`
 - `clients/` - codama-js codegen harness (runs in the node tooling image)
-- `verif/` - committed Creusot proof sessions per prover crate (`verif/ticketing_creusot_rlib/`,
-  one `proof.json` per verification condition)
+- `verif/` - proof projects and committed Creusot sessions; hax keeps only its Lake project here
+  and regenerates the ignored Lean extraction on every verification run
 
 ## Source Of Truth
 
 - `mise/config.toml` plus the `mise/config.<env>.toml` overlays (nightly, solana, creusot, kani,
-  verus, flux, aeneas) pin every tool mise has a backend for: the rustup toolchains, node/pnpm/just,
+  verus, flux, aeneas, hax) pin every tool mise has a backend for: the rustup toolchains, node/pnpm/just,
   and the ubi/aqua/cargo/github-backend binaries (cargo-machete, cargo-nextest, Agave, kani-verifier,
-  the Verus bundle, verusfmt, Flux's Z3 and liquid-fixpoint, Aeneas's Charon nightly and elan);
+  the Verus bundle, verusfmt, Flux's Z3 and liquid-fixpoint, Aeneas's Charon nightly and elan,
+  cargo-hax plus its driver/Rust engine and elan);
   formatting uses `MISE_ENV=nightly`
 - `Dockerfile` defines the containerized tooling stages and owns what mise cannot express: apt
   packages, the pinned mise itself, Creusot's opam-built toolchain, Kani's `cargo kani setup`
   bundle, Flux's from-source build (flux-driver + precompiled spec libs), Aeneas's opam-built
-  Charon+Aeneas and its Lean/mathlib toolchain, and the SBF platform-tools install
+  Charon+Aeneas and its Lean/mathlib toolchain, hax's isolated opam-built native helper plus pinned
+  Lean proof library, and the SBF platform-tools install
 - `Justfile` and `just/*.just` are the primary command interface
 - `rustfmt.toml` and `clippy.toml` define Rust formatting and lint behavior
 - `why3find.json` defines the prover configuration
@@ -54,6 +56,7 @@ Prefer `just` recipes over ad hoc lower-level commands. Run from the repository 
 | Generate IDL / Rust client | `just solana gen-idl`, `just solana gen-client` |
 | Client wire-parity + SBF tests | `just solana test-client-rust` |
 | Prove / replay Creusot sessions | `just creusot verify`, `just creusot replay` |
+| Extract and prove the hax Lean lane | `just hax verify` |
 
 ## Repo Defaults
 
@@ -69,4 +72,5 @@ Prefer `just` recipes over ad hoc lower-level commands. Run from the repository 
 - For changes touching the program or Mollusk integration tests, also run `just solana test-it`
 - For changes touching Creusot specs (`domain/`, `flows/`) or `verif/`, run `just creusot replay`
   (regenerate sessions with `just creusot verify` when specs changed)
+- For changes touching the hax crate, toolchain, scripts, or Lean project, run `just hax verify`
 - Prefer `just rust clippy` before larger submissions

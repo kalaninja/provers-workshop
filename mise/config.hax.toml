@@ -1,0 +1,17 @@
+# Toolchain for the hax lane, selected with MISE_ENV=hax. hax is a rustc driver, so mirror the
+# upstream rust-toolchain.toml when upgrading: the driver, its Rust engine, and cargo frontend must
+# all be built against the same nightly and rustc-private components.
+[tools]
+rust = { version = "nightly-2025-11-08", profile = "minimal", components = "rustc-dev,llvm-tools-preview,rust-analysis,rust-src,rustfmt" }
+
+# hax's published frontend, compiler driver, and Lean-capable Rust engine. Keep these exactly in
+# lockstep; the frontend dispatches the Lean backend to hax-rust-engine. At v0.3.7 that engine still
+# calls one native OCaml helper for shared import/phases; Docker builds it in an isolated opam stage.
+"cargo:cargo-hax" = "0.3.7"
+"cargo:hax-driver" = "0.3.7"
+"cargo:hax-rust-engine" = "0.3.7"
+
+# elan manages the Lean toolchain named by verif/ticketing_hax/lean-toolchain. The Docker stage
+# installs it under /opt/hax/elan and prebuilds hax's Lean proof library there.
+[tools."ubi:leanprover/elan"]
+version = "4.2.3"

@@ -11,6 +11,11 @@
 # baked Aeneas + mathlib build at run time).
 /verif/**/.lake/
 
+# hax: the inline Rust proof is the source artifact. Lean extraction + Lake's generated manifest are
+# regenerated and checked from scratch by `just hax verify`, so neither is committed.
+/verif/ticketing_hax/extraction/
+/verif/ticketing_hax/lake-manifest.json
+
 # Local tool caches (populated by run-tooling.sh volume mounts)
 /.cache/
 

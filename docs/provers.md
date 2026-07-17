@@ -9,7 +9,7 @@ each wired lane gets a full report of its own next to this file
 ([creusot.md](creusot.md), [kani.md](kani.md)), and the dated chronology lives
 in [status-log.md](status-log.md).
 
-Statuses and tool facts below are point-in-time. **Last reviewed: 2026-07-16.**
+Statuses and tool facts below are point-in-time. **Last reviewed: 2026-07-17.**
 Re-verify a tool's state (releases, toolchain pins, open blockers) before
 starting its lane.
 
@@ -22,7 +22,7 @@ starting its lane.
 | 3 | [Verus](https://github.com/verus-lang/verus) | SMT over a verification dialect of Rust | wired up - [report](verus.md) |
 | 4 | [Flux](https://github.com/flux-rs/flux) | refinement (liquid) types | wired up - [report](flux.md) |
 | 5 | [Aeneas](https://github.com/AeneasVerif/aeneas) | functional translation to Lean, interactive proofs | wired up - [report](aeneas.md) |
-| 6 | [hax](https://github.com/cryspen/hax) | translation to F* / Rocq / Lean | planned |
+| 6 | [hax](https://github.com/cryspen/hax) | translation to F* / Rocq / Lean | scaffolded (Lean smoke proof; cores pending) |
 | 7 | [VeriFast](https://github.com/verifast/verifast) | separation logic | on hold - target-fit question |
 | 8 | [Prusti](https://github.com/viperproject/prusti-dev) | deductive, Viper backend | blocked - edition 2024 / resolver 3 unsupported |
 
@@ -318,7 +318,7 @@ template, deeper than any prior lane's:
 Costs and risks: still to spike at wire-up - Charon has to extract the crate
 graph with pinocchio/bytemuck in it, or those get marked opaque.
 
-### 6. hax - planned
+### 6. hax - scaffolded
 
 [hax](https://github.com/cryspen/hax) (Cryspen) translates a large subset of
 Rust into F*, Rocq or Lean; contracts are written in Rust as
@@ -334,6 +334,37 @@ the April 2026
 ["Verification Facade" critique](https://symbolic.software/blog/2026-04-07-cryspen-hax/)
 of semantic gaps in the hax pipeline - a live case study in what the
 *translation itself* asks you to trust.
+
+The first-commit infrastructure is now in place for the Lean backend:
+
+- `cargo-hax`, `hax-driver`, and `hax-rust-engine` are pinned together at
+  `0.3.7` over upstream's `nightly-2025-11-08`; elan `4.2.3` installs Lean
+  `v4.29.0-rc1`. The hax Lean proof library is built from the exact commit
+  behind that release (`d8b5b3d`) and baked into the bookworm tooling image.
+- The Lean backend dispatches through hax's Rust engine, but at `0.3.7` that
+  engine still delegates THIR import/shared phases to native `hax-engine` over
+  a JSON protocol. The helper is opam-built with upstream's OCaml `5.1.1` in an
+  isolated builder; only its binary reaches the final image. Two Rust build
+  helpers (`hax-export-json-schemas` and unpublished
+  `hax-engine-names-extract`) generate the engine's schema universe. This makes
+  the image Aeneas-class to build despite the Rust/Lean runtime pipeline.
+  `just hax verify` performs Rust -> hax -> Lean without network access at run
+  time: direct `lean` checks against the baked Hax/Qq oleans because a clean
+  `lake build` re-clones quote4.
+- `ticketing-hax` currently exposes only `smoke_square(u8)`: its inline
+  `requires(x < 16)` / `ensures(result >= x)` contract is discharged by an
+  inline Lean `hax_bv_decide` proof. Widening the domain to `x < 17` admits the
+  wrapping `16 * 16` case and makes verification fail, guarding the scaffold
+  against a vacuous green run.
+- Generated Lean is deliberately ignored: hax's proof attribute in Rust is the
+  source artifact and every verify run regenerates/compiles the extraction from
+  scratch. There is therefore no separate replay command at this stage.
+
+Still pending: port the real Pinocchio ticketing crate, find the practical
+extraction/opacity boundary around the shared wire types, match the Creusot
+contracts, build the SBF program, and write the full `docs/hax.md` report. The
+F* and Rocq backends are out of scope for this lane so the comparison with
+Aeneas stays on the same Lean target.
 
 ### 7. VeriFast - on hold
 
