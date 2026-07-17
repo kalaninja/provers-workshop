@@ -41,12 +41,13 @@ identical contracts.
 | 3 | [Verus](https://github.com/verus-lang/verus) | SMT over a verification dialect of Rust | wired up |
 | 4 | [Flux](https://github.com/flux-rs/flux) | refinement (liquid) types | wired up |
 | 5 | [Aeneas](https://github.com/AeneasVerif/aeneas) | functional translation to Lean | wired up |
-| 6 | [hax](https://github.com/cryspen/hax) | translation to F* / Rocq / Lean | scaffolded - Lean smoke proof |
+| 6 | [hax](https://github.com/cryspen/hax) | translation to F* / Rocq / Lean | wired up - 5/6 cores proved in Lean |
 | 7 | [VeriFast](https://github.com/verifast/verifast) | separation logic | on hold |
 | 8 | [Prusti](https://github.com/viperproject/prusti-dev) | deductive, Viper backend | blocked - edition 2024 / resolver 3 unsupported |
 
-Creusot, Kani, Verus, Flux, and Aeneas are wired up today; the hax-to-Lean
-toolchain and a non-vacuous smoke proof are scaffolded, with real cores next.
+Creusot, Kani, Verus, Flux, and Aeneas are wired up today, and the hax-to-Lean
+lane proves five of its six cores in Lean (the `ticket_buy` composition is the
+one pending proof).
 The ordering rationale, integration ground rules, and the running comparison live in the
 roadmap index [docs/provers.md](docs/provers.md); each wired lane has a full
 report next to it ([docs/creusot.md](docs/creusot.md),
@@ -115,7 +116,7 @@ just flux verify             # refinement-type-check the cores (Flux -> fixpoint
 just aeneas verify           # extract (Charon) -> translate (Aeneas) -> check the Lean proofs
 just aeneas replay           # deterministically re-check the committed Lean proofs (pre-push)
 
-just hax verify              # extract Rust -> Lean and compile the inline smoke proof
+just hax verify              # extract Rust -> Lean and compile the inline core proofs
 just hax version             # show the pinned hax engine and Lean versions
 
 just init-hooks              # wire the repo-tracked pre-push hook into this clone
@@ -133,7 +134,7 @@ just/                       recipe modules (rust, solana, creusot, kani, verus, 
 
 crates/ticketing/interface  wire layer: byte layouts + program-side helpers (shared by all provers)
 crates/ticketing/creusot    the Creusot program crate: trusted shells + verified cores (one crate per prover)
-crates/ticketing/hax        hax-to-Lean lane scaffold: one inline smoke contract/proof
+crates/ticketing/hax        hax-to-Lean lane: inline contracts, 5/6 cores proved in Lean
 crates/ticketing/client     codama-rendered Rust client + handwritten checked decoders
 crates/ticketing/macros     proc-macros: creusot_extension, codegen derives, no-op codama stand-ins
 

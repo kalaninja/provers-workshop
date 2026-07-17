@@ -5,15 +5,33 @@ edition.workspace = true
 license.workspace = true
 publish.workspace = true
 
-# The first hax commit deliberately contains only a verifier smoke target. The real Pinocchio
-# program and its decision cores arrive in the wire-up commit once the extraction boundary is known.
+# `lib` first: hax extracts the rlib and host tests build it; `cdylib` is what `cargo build-sbf`
+# links into the deployable `.so`. Behavior-identical program to the other lanes; the hax spec layer
+# (inline `hax_lib` attributes + inline Lean proofs) is `cfg(hax)`-gated, so ordinary and SBF builds
+# compile the identical program with zero verification overhead.
 [lib]
-crate-type = ["lib"]
+crate-type = ["lib", "cdylib"]
 
 [lints]
 workspace = true
 
+# Plain program dependencies. The verifier facade (`hax-lib`) rides in only under `--cfg hax`, below.
+[dependencies]
+pinocchio = { workspace = true, features = ["cpi"] }
+pinocchio-log = { workspace = true, optional = true }
+pinocchio-system = { workspace = true }
+
+ticketing-interface = { workspace = true }
+
+[features]
+default = []
+# Gates the `entrypoint!` registration so the crate can be linked as a plain rlib (host tests, hax
+# extraction) without clashing over the program entrypoint.
+bpf-entrypoint = []
+# Compiles `pinocchio_log` instruction tracing into the dispatcher.
+logging = ["dep:pinocchio-log"]
+
 # hax sets cfg(hax) while extracting. Ordinary workspace builds therefore do not compile or carry
-# the verifier facade; the executable function below remains plain Rust.
+# the verifier facade; the executable program remains plain Rust.
 [target.'cfg(hax)'.dependencies]
 hax-lib = "=0.3.7"

@@ -1,32 +1,37 @@
-//! hax-to-Lean lane scaffold.
+//! Pinocchio ticketing program (hax lane): trusted imperative shells + pure
+//! decision cores, proved in Lean via hax's Rust -> Lean extraction.
 //!
-//! This first commit proves one deliberately small, non-vacuous function and
-//! establishes the hermetic Rust -> hax -> Lean pipeline. The ticketing program
-//! and its real decision cores are added only after that pipeline is known to
-//! work end to end.
+//! A port of the `ticketing-creusot` reference program (behavior-identical to
+//! every lane). Unlike Aeneas - the other translate-to-Lean lane, which proves
+//! from the outside with no in-source spec - hax carries its contracts *inline*
+//! as `hax_lib::lean::after` attributes: embedded Lean Hoare-triple theorems
+//! proved next to the code they specify, all `cfg(hax)`-gated so ordinary and
+//! SBF builds compile the identical program with zero verification overhead.
+//! The crate is split along the verification boundary:
+//!
+//! - [`mod@instructions`] - the trusted imperative shells: account parsing, PDA
+//!   creation, clock reads, CPIs, persistence. Everything that touches the
+//!   Solana runtime. Excluded from hax extraction.
+//! - `flows` - the decision cores: pure functions over wire-level state values.
+//!   hax extracts these to Lean and their inline contracts are proved. Written
+//!   extraction-first: explicit `if`/`match` instead of `?`, which would drag
+//!   the `Try`/`ControlFlow` trait machinery into the model.
+//! - `domain` - the pure accounting/lifecycle logic the cores call
+//!   ([`mod@domain::event`], extracted and proved) plus [`mod@domain::glue`],
+//!   the field-level bridges to `Event`/`Ticket`/`NonZeroU64` (the trusted
+//!   surface, whose extraction `hax_lib::lean::replace` swaps for concrete
+//!   trusted Lean models).
+//!
+//! hax adds only `cfg(hax)`-gated attributes, so ordinary `cargo build` and
+//! `cargo build-sbf` expand this to the real program (host+SBF) unchanged.
 #![warn(missing_docs)]
 #![warn(rustdoc::broken_intra_doc_links)]
 
-/// Squares a small byte without overflowing it.
-///
-/// The hax precondition is the exact overflow boundary needed by the Lean
-/// proof: widening it from `x < 16` to `x < 17` admits `16`, whose square wraps
-/// to zero and makes the postcondition false.
-#[cfg_attr(hax, hax_lib::requires(x < 16))]
-#[cfg_attr(hax, hax_lib::ensures(|result| result >= x))]
-#[cfg_attr(hax, hax_lib::lean::proof("by unfold smoke_square; hax_bv_decide"))]
-#[must_use]
-pub fn smoke_square(x: u8) -> u8 {
-    x * x
-}
+mod domain;
+mod flows;
+mod instructions;
 
-#[cfg(test)]
-mod tests {
-    use super::smoke_square;
+pub use instructions::process_instruction;
 
-    #[test]
-    fn squares_inside_the_verified_domain() {
-        assert_eq!(smoke_square(0), 0);
-        assert_eq!(smoke_square(15), 225);
-    }
-}
+#[cfg(feature = "bpf-entrypoint")]
+pinocchio::entrypoint!(process_instruction);

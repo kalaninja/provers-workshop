@@ -3,6 +3,27 @@
 The dated chronology of [the prover roadmap](provers.md): what landed in each
 lane and what it taught, newest first.
 
+- **2026-07-17** - hax ticketing cores wired up: `ticketing-hax` grew from the
+  smoke target into the full Pinocchio program (trusted `instructions/` shells +
+  `entrypoint!` + `cdylib`, `flows/`/`domain/` cores), building a
+  behavior-identical `ticketing_hax.so` that passes the generated client's
+  Mollusk suite (7/7). Five of the six decision cores are proved in Lean -
+  `payment_for`, `create_event`, `record_sale`, `close_sales`, `close_event` -
+  as inline `hax_lib::lean::after` Hoare-triple theorems discharged by
+  `hax_mvcgen` + `grind`/`omega`. Findings: `future(event)`/`&mut` works in the
+  experimental Lean backend (cores keep their `&mut` signatures); the
+  `requires`/`ensures` -> `Spec` path can't express a `Result`-match
+  postcondition (its `pureEnsures` rejects it), so rich contracts use the
+  `barrett`/`adc`-style `lean::after` triples instead; `u64::checked_mul` is
+  unmodeled, so `create_event`'s overflow gate is reformulated with integer
+  division (behavior-identical, still proved); the wire types are modeled in a
+  committed `model_preamble.lean` spliced post-extraction (`Event`/`Ticket` as
+  Lean structures, `NonZeroU64` as a `u64` subtype with positivity *proved*), and
+  glue is given concrete Lean models via `lean::replace`. Costs recorded in
+  `docs/hax.md`: `record_sale`'s clamp is proved as the two `<=` bounds rather
+  than the exact `min` (as Flux also drops), and the `purchase` composition is
+  extracted but not yet proved (hax `0.3.7` does not compose the per-core
+  theorems, and the unfolded nonlinear pricing goal defeats `grind`).
 - **2026-07-17** - hax-to-Lean lane scaffolded: a separate `ticketing-hax`
   library with one non-vacuous inline contract/proof, `MISE_ENV=hax` pins
   `cargo-hax`/`hax-driver`/`hax-rust-engine` `0.3.7` and upstream's
