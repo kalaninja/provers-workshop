@@ -57,7 +57,7 @@ has '^(crates/ticketing/flux/|mise/config\.flux\.toml|just/flux\.just|docker/flu
 has '^(crates/ticketing/aeneas/|mise/config\.aeneas\.toml|just/aeneas\.just|scripts/aeneas/|verif/ticketing_aeneas/|docker/aeneas\.Dockerfile$)' && aeneas_changed=true
 has '^(crates/ticketing/hax/|mise/config\.hax\.toml|just/hax\.just|scripts/hax/|verif/ticketing_hax/|docker/hax\.Dockerfile$)' && hax_changed=true
 has '^(crates/ticketing/verifast/|mise/config\.verifast\.toml|just/verifast\.just|docker/verifast\.Dockerfile$)' && verifast_changed=true
-has '^(Dockerfile|just/common\.just|just/tooling\.just)$' && shared_tooling_changed=true
+has '^(Dockerfile$|just/common\.just$|just/tooling\.just$|scripts/docker/)' && shared_tooling_changed=true
 
 if $shared_tooling_changed; then
   rust_changed=true
