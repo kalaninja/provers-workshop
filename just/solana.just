@@ -2,6 +2,9 @@ import 'common.just'
 
 mod tooling
 
+# SBF artefacts land in the shared workspace target; the test runners locate the built .so through it.
+sbf_env := "SBF_OUT_DIR=/workspace/target/deploy"
+
 # Show pinned Solana and SBF toolchain versions
 version: tooling::build-solana
     MISE_ENV=solana ./scripts/docker/run-tooling.sh {{ solana_tooling_image }} solana --version
@@ -12,21 +15,21 @@ version: tooling::build-solana
 build package='ticketing' lane='creusot': tooling::build-solana
     MISE_ENV=solana ./scripts/docker/run-tooling.sh {{ solana_tooling_image }} cargo build-sbf --skip-tools-install --manifest-path crates/{{ package }}/{{ lane }}/Cargo.toml --features bpf-entrypoint
 
-# Full Solana test suite for a package/lane: build the SBF artefact once, then run the
-# program's unit + Mollusk integration tests AND the generated client's SBF tests.
-test package='ticketing' lane='creusot': (build package lane)
-    MISE_ENV=solana ./scripts/docker/run-tooling.sh {{ solana_tooling_image }} env SBF_OUT_DIR=/workspace/target/deploy cargo nextest run --manifest-path crates/{{ package }}/{{ lane }}/Cargo.toml --features bpf-entrypoint
-    MISE_ENV=solana ./scripts/docker/run-tooling.sh {{ solana_tooling_image }} env SBF_OUT_DIR=/workspace/target/deploy TICKETING_PROGRAM_NAME=ticketing_{{ lane }} cargo nextest run -p {{ package }}-client --features svm-tests -E 'kind(test)'
+# Full Solana test suite for a package/lane: build the SBF artefact once, then run the generated
+# client's SBF tests (via the `test-client-rust` dependency; just deduplicates the shared build)
+# and the program's unit + Mollusk integration tests.
+test package='ticketing' lane='creusot': (build package lane) (test-client-rust package lane)
+    MISE_ENV=solana ./scripts/docker/run-tooling.sh {{ solana_tooling_image }} env {{ sbf_env }} cargo nextest run --manifest-path crates/{{ package }}/{{ lane }}/Cargo.toml --features bpf-entrypoint
 
 # Fast check: only the program's Mollusk integration tests (defaults to the Creusot lane).
 test-it package='ticketing' lane='creusot': (build package lane)
-    MISE_ENV=solana ./scripts/docker/run-tooling.sh {{ solana_tooling_image }} env SBF_OUT_DIR=/workspace/target/deploy cargo nextest run --manifest-path crates/{{ package }}/{{ lane }}/Cargo.toml --features bpf-entrypoint -E 'kind(test)'
+    MISE_ENV=solana ./scripts/docker/run-tooling.sh {{ solana_tooling_image }} env {{ sbf_env }} cargo nextest run --manifest-path crates/{{ package }}/{{ lane }}/Cargo.toml --features bpf-entrypoint -E 'kind(test)'
 
 # Build a lane's SBF artefact, then run the generated Rust client's integration tests against it.
 # The client suite is lane-agnostic (it loads `ticketing_<lane>.so`), so it must pass for every
 # lane: `just solana test-client-rust ticketing creusot|kani|verus`.
 test-client-rust package='ticketing' lane='creusot': (build package lane)
-    MISE_ENV=solana ./scripts/docker/run-tooling.sh {{ solana_tooling_image }} env SBF_OUT_DIR=/workspace/target/deploy TICKETING_PROGRAM_NAME=ticketing_{{ lane }} cargo nextest run -p {{ package }}-client --features svm-tests -E 'kind(test)'
+    MISE_ENV=solana ./scripts/docker/run-tooling.sh {{ solana_tooling_image }} env {{ sbf_env }} TICKETING_PROGRAM_NAME=ticketing_{{ lane }} cargo nextest run -p {{ package }}-client --features svm-tests -E 'kind(test)'
 
 # Generate the codama IDL for a Solana program
 gen-idl package='ticketing': tooling::build-solana

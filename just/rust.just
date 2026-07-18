@@ -3,12 +3,11 @@ import 'common.just'
 mod tooling
 
 # Format the Rust workspace with pinned nightly rustfmt
-fmt: tooling::build-rust
-    MISE_ENV=nightly ./scripts/docker/run-tooling.sh {{ rust_tooling_image }} cargo fmt --all
+fmt args='': tooling::build-rust
+    MISE_ENV=nightly ./scripts/docker/run-tooling.sh {{ rust_tooling_image }} cargo fmt --all {{ args }}
 
-# Check Rust formatting with pinned nightly rustfmt
-fmt-check: tooling::build-rust
-    MISE_ENV=nightly ./scripts/docker/run-tooling.sh {{ rust_tooling_image }} cargo fmt --all --check
+# Check Rust formatting with pinned nightly rustfmt (the CI/pre-push variant of `fmt`)
+fmt-check: (fmt "--check")
 
 # Run Clippy for all workspace targets
 clippy: tooling::build-rust

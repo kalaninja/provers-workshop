@@ -2,20 +2,22 @@ import 'common.just'
 
 mod tooling
 
+# Every recipe runs inside the lane's tooling image via the shared docker-run wrapper.
+run := "MISE_ENV=verus ./scripts/docker/run-tooling.sh " + verus_tooling_image
+
 # Show the pinned Verus version (diagnostic). `verus --version`, not `cargo verus --version`:
 # the pinned rolling cargo-verus takes no such flag.
 version: tooling::build-verus
-    MISE_ENV=verus ./scripts/docker/run-tooling.sh {{ verus_tooling_image }} verus --version
+    {{ run }} verus --version
 
 # Format the Verus lane with pinned verusfmt - it formats inside `verus!{}` blocks, which rustfmt
 # cannot reach. `--verus-only` leaves code outside the macros to `just rust fmt`: the repo's
 # rustfmt.toml uses nightly-only options that the image's stable rustfmt would reject.
-fmt: tooling::build-verus
-    MISE_ENV=verus ./scripts/docker/run-tooling.sh {{ verus_tooling_image }} sh -c 'find crates/ticketing/verus/src -name "*.rs" -print0 | xargs -0 verusfmt --verus-only'
+fmt args='': tooling::build-verus
+    {{ run }} sh -c 'find crates/ticketing/verus/src -name "*.rs" -print0 | xargs -0 verusfmt --verus-only {{ args }}'
 
 # Check Verus-lane formatting (the CI/pre-push variant of `fmt`).
-fmt-check: tooling::build-verus
-    MISE_ENV=verus ./scripts/docker/run-tooling.sh {{ verus_tooling_image }} sh -c 'find crates/ticketing/verus/src -name "*.rs" -print0 | xargs -0 verusfmt --verus-only --check'
+fmt-check: (fmt "--check")
 
 # Verify the ticketing-verus crate (Verus -> bundled Z3). Re-verifies from scratch every run (no
 # committed proof artifacts, like the Kani lane). The `verus` feature turns on the vstd import +
@@ -25,4 +27,4 @@ fmt-check: tooling::build-verus
 # cfg, and its own `verus_keep_ghost`-gated `#![feature(nonzero_internals)]` makes it compile
 # under the driver.
 verify: tooling::build-verus
-    MISE_ENV=verus ./scripts/docker/run-tooling.sh {{ verus_tooling_image }} env 'RUSTFLAGS=--cfg feature="nonzero_internals"' cargo verus verify -p ticketing-verus --features verus
+    {{ run }} env 'RUSTFLAGS=--cfg feature="nonzero_internals"' cargo verus verify -p ticketing-verus --features verus
