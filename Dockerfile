@@ -50,6 +50,24 @@ RUN --mount=type=secret,id=github_token \
     && ln -sf /workspace/.cache/cargo/git /opt/cargo/git \
     && ln -sf /workspace/.cache/cargo/registry /opt/cargo/registry
 
+# Shared opam/OCaml build base for the from-source OCaml lanes (creusot, aeneas, and hax's
+# isolated helper-builder stage). Only the apt toolchain and the non-interactive opam env live
+# here; each consumer keeps its own OPAMROOT, `opam init`, and switch version.
+FROM tooling-base AS opam-base
+
+ENV OPAMYES=1
+ENV OPAMCONFIRMLEVEL=unsafe-yes
+
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends \
+        autoconf \
+        libgmp-dev \
+        m4 \
+        opam \
+        rsync \
+        zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 FROM tooling-base AS rust-tooling
 
 COPY mise/config.nightly.toml ./mise/config.nightly.toml

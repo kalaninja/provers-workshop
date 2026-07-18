@@ -1,15 +1,30 @@
 # syntax=docker/dockerfile:1
 ARG WORKSHOP_IMAGE_PLATFORM=linux/amd64
 ARG WORKSHOP_TOOLING_BASE_IMAGE=workshop-tooling-base-bookworm:dev
+ARG WORKSHOP_OPAM_BASE_IMAGE=workshop-tooling-base-opam:dev
+# Single source for the hax source revision; stages re-import via a bare ARG. The Lean toolchain
+# is not pinned here: it is derived from the pinned source tree (hax-lib/proof-libs/lean).
+ARG HAX_REV=d8b5b3d3b666fee8943a351445d2b680105e8ea3
+
+# Fetch the pinned hax source once (shallow SHA fetch); the names and OCaml builder stages copy
+# from here instead of cloning the repository twice.
+FROM --platform=${WORKSHOP_IMAGE_PLATFORM} ${WORKSHOP_TOOLING_BASE_IMAGE} AS hax-src
+
+ARG HAX_REV
+
+RUN --mount=type=secret,id=github_token \
+    export GITHUB_TOKEN="$(cat /run/secrets/github_token 2>/dev/null || true)" \
+    && git init /opt/hax/src \
+    && git -C /opt/hax/src remote add origin https://github.com/cryspen/hax \
+    && git -C /opt/hax/src fetch --depth 1 origin "${HAX_REV}" \
+    && git -C /opt/hax/src checkout FETCH_HEAD
+
 FROM --platform=${WORKSHOP_IMAGE_PLATFORM} ${WORKSHOP_TOOLING_BASE_IMAGE} AS hax-rust-base
 
 COPY mise/config.hax.toml ./mise/config.hax.toml
 
 ENV ELAN_HOME=/opt/hax/elan
 ENV PATH=/opt/hax/elan/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-
-ARG HAX_REV=d8b5b3d3b666fee8943a351445d2b680105e8ea3
-ARG HAX_LEAN_TOOLCHAIN=leanprover/lean4:v4.29.0-rc1
 
 RUN --mount=type=secret,id=github_token \
     export GITHUB_TOKEN="$(cat /run/secrets/github_token 2>/dev/null || true)" \
@@ -30,35 +45,22 @@ RUN MISE_ENV=hax mise exec -- bash -c 'set -euo pipefail \
 
 FROM hax-rust-base AS hax-names-builder
 
-ARG HAX_REV=d8b5b3d3b666fee8943a351445d2b680105e8ea3
+COPY --from=hax-src /opt/hax/src /opt/hax-names-src
 
 RUN --mount=type=secret,id=github_token \
     export GITHUB_TOKEN="$(cat /run/secrets/github_token 2>/dev/null || true)" \
-    && git clone https://github.com/cryspen/hax /opt/hax-names-src \
-    && (cd /opt/hax-names-src && git checkout "${HAX_REV}") \
     && MISE_ENV=hax mise exec -- cargo install --locked \
         --path /opt/hax-names-src/engine/names/extract
 
-FROM --platform=${WORKSHOP_IMAGE_PLATFORM} ${WORKSHOP_TOOLING_BASE_IMAGE} AS hax-ocaml-builder
+FROM --platform=${WORKSHOP_IMAGE_PLATFORM} ${WORKSHOP_OPAM_BASE_IMAGE} AS hax-ocaml-builder
 
 ENV OPAMROOT=/opt/hax-ocaml/opam
-ENV OPAMYES=1
-ENV OPAMCONFIRMLEVEL=unsafe-yes
-
-ARG HAX_REV=d8b5b3d3b666fee8943a351445d2b680105e8ea3
 
 RUN apt-get update \
-    && apt-get install --yes --no-install-recommends \
-        autoconf \
-        libgmp-dev \
-        m4 \
-        nodejs \
-        opam \
-        rsync \
-        zlib1g-dev \
+    && apt-get install --yes --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/* \
     && opam init --bare --disable-sandboxing --yes \
-    && opam switch create 5.1.1 ocaml-base-compiler.5.1.1 --yes \
-    && rm -rf /var/lib/apt/lists/*
+    && opam switch create 5.1.1 ocaml-base-compiler.5.1.1 --yes
 
 # Glob the version segment so this tracks the cargo-hax pin in mise/config.hax.toml
 # (the source of truth) instead of hardcoding a version that drifts on every bump.
@@ -66,10 +68,7 @@ COPY --from=hax-rust-base \
     /opt/mise/installs/cargo-cargo-hax/*/bin/hax-export-json-schemas \
     /usr/local/bin/
 
-RUN --mount=type=secret,id=github_token \
-    export GITHUB_TOKEN="$(cat /run/secrets/github_token 2>/dev/null || true)" \
-    && git clone https://github.com/cryspen/hax /opt/hax/src \
-    && (cd /opt/hax/src && git checkout "${HAX_REV}")
+COPY --from=hax-src /opt/hax/src /opt/hax/src
 
 RUN eval "$(opam env --switch=5.1.1)" \
     && export OPAMJOBS=4 OPAMERRLOGLEN=0 OPAMASSUMEDEPEXTS=1 OCAMLRUNPARAM=o=20 \
@@ -91,14 +90,12 @@ FROM hax-rust-base AS hax-tooling
 COPY --from=hax-ocaml-builder /opt/hax/src /opt/hax/src
 COPY --from=hax-ocaml-builder /opt/hax-ocaml/hax-engine /usr/local/bin/hax-engine
 
-ARG HAX_LEAN_TOOLCHAIN=leanprover/lean4:v4.29.0-rc1
-
+# The Lean toolchain is pinned by the hax source tree itself (the proof library's lean-toolchain,
+# fixed by HAX_REV above); derive it from there instead of duplicating the version here.
 RUN --mount=type=secret,id=github_token \
+    --mount=type=bind,source=scripts/docker/install-lean-toolchain.sh,target=/tmp/install-lean-toolchain.sh \
     export GITHUB_TOKEN="$(cat /run/secrets/github_token 2>/dev/null || true)" \
-    && MISE_ENV=hax mise exec -- elan toolchain install "${HAX_LEAN_TOOLCHAIN}" \
-    && tc="$(ls -d /opt/hax/elan/toolchains/*/ | head -n1)" \
-    && for b in lean lake leanc; do ln -sf "${tc}bin/${b}" "/usr/local/bin/${b}"; done \
-    && lean --version
+    && MISE_ENV=hax mise exec -- bash /tmp/install-lean-toolchain.sh /opt/hax/src/hax-lib/proof-libs/lean/lean-toolchain
 
 RUN --mount=type=secret,id=github_token \
     export GITHUB_TOKEN="$(cat /run/secrets/github_token 2>/dev/null || true)" \

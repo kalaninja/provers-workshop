@@ -10,5 +10,8 @@ RUN --mount=type=secret,id=github_token \
     && mise install -E verifast rust "github:verifast/verifast" \
     && chmod -R a+rwX /opt/cargo /opt/mise /opt/rustup
 
-RUN MISE_ENV=verifast mise exec -- sh -c 'command -v verifast' \
-    && MISE_ENV=verifast mise exec -- rustup which --toolchain nightly-2025-11-25 rustc
+# Smoke: verify a trivial crate end to end (verifast drives the pinned rustc nightly to MIR).
+RUN printf 'fn main() {}\n' > /tmp/vf-smoke.rs \
+    && MISE_ENV=verifast mise exec -- verifast /tmp/vf-smoke.rs \
+    && MISE_ENV=verifast mise exec -- sh -c 'rustup which rustc && rustc --version' \
+    && rm /tmp/vf-smoke.rs

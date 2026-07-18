@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 ARG WORKSHOP_IMAGE_PLATFORM=linux/amd64
-ARG WORKSHOP_TOOLING_BASE_IMAGE=workshop-tooling-base-bookworm:dev
+ARG WORKSHOP_TOOLING_BASE_IMAGE=workshop-tooling-base-opam:dev
 FROM --platform=${WORKSHOP_IMAGE_PLATFORM} ${WORKSHOP_TOOLING_BASE_IMAGE} AS aeneas-tooling
 
 COPY mise/config.aeneas.toml ./mise/config.aeneas.toml
@@ -11,29 +11,20 @@ ENV XDG_CACHE_HOME=/opt/aeneas/cache
 ENV OPAMROOT=/opt/aeneas/opam
 ENV ELAN_HOME=/opt/aeneas/elan
 ENV PATH=/opt/aeneas/elan/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-ENV OPAMYES=1
-ENV OPAMCONFIRMLEVEL=unsafe-yes
 
 ARG AENEAS_REV=d71d2e3f2cb763f7faf15ab606ac9cf32da8dead
 ARG CHARON_REV=5a5017333554ec1e95cae3c4fe05f5bd90b44487
 
 RUN --mount=type=secret,id=github_token \
     export GITHUB_TOKEN="$(cat /run/secrets/github_token 2>/dev/null || true)" \
-    && apt-get update \
-    && apt-get install --yes --no-install-recommends \
-        autoconf \
-        libgmp-dev \
-        m4 \
-        opam \
-        pkg-config \
-        rsync \
-        zlib1g-dev \
     && mise install -E aeneas rust "ubi:leanprover/elan" \
     && opam init --bare --disable-sandboxing --yes \
     && opam switch create 5.3.0 \
     && chmod -R a+rwX /opt/cargo /opt/mise /opt/rustup /opt/aeneas
 
-RUN opam install --switch=5.3.0 --yes \
+# Fresh apt lists inside the layer: opam resolves any depexts of these packages through apt.
+RUN apt-get update \
+    && opam install --switch=5.3.0 --yes \
         calendar core core_unix domainslib easy_logging menhir ocamlformat.0.27.0 \
         ocamlgraph odoc ppx_deriving ppx_deriving_yojson progress unionFind visitors yojson zarith \
     && rm -rf /var/lib/apt/lists/* \
@@ -41,10 +32,14 @@ RUN opam install --switch=5.3.0 --yes \
 
 RUN --mount=type=secret,id=github_token \
     export GITHUB_TOKEN="$(cat /run/secrets/github_token 2>/dev/null || true)" \
-    && git clone https://github.com/AeneasVerif/aeneas /opt/aeneas/src \
-    && (cd /opt/aeneas/src && git checkout "${AENEAS_REV}") \
-    && git clone https://github.com/AeneasVerif/charon /opt/aeneas/src/charon \
-    && (cd /opt/aeneas/src/charon && git checkout "${CHARON_REV}") \
+    && git init /opt/aeneas/src \
+    && git -C /opt/aeneas/src remote add origin https://github.com/AeneasVerif/aeneas \
+    && git -C /opt/aeneas/src fetch --depth 1 origin "${AENEAS_REV}" \
+    && git -C /opt/aeneas/src checkout FETCH_HEAD \
+    && git init /opt/aeneas/src/charon \
+    && git -C /opt/aeneas/src/charon remote add origin https://github.com/AeneasVerif/charon \
+    && git -C /opt/aeneas/src/charon fetch --depth 1 origin "${CHARON_REV}" \
+    && git -C /opt/aeneas/src/charon checkout FETCH_HEAD \
     && MISE_ENV=aeneas mise exec rust -- bash -c 'eval "$(opam env --switch=5.3.0)" \
         && cd /opt/aeneas/src/charon && make build \
         && cd /opt/aeneas/src && make' \
@@ -53,13 +48,12 @@ RUN --mount=type=secret,id=github_token \
     && ln -sf /opt/aeneas/src/charon/bin/charon-driver /usr/local/bin/charon-driver \
     && chmod -R a+rwX /opt/aeneas /opt/cargo /opt/rustup
 
-ARG LEAN_TOOLCHAIN=leanprover/lean4:v4.31.0
+# The Lean toolchain is pinned by the aeneas source tree itself (backends/lean/lean-toolchain,
+# fixed by AENEAS_REV above); derive it from there instead of duplicating the version here.
 RUN --mount=type=secret,id=github_token \
+    --mount=type=bind,source=scripts/docker/install-lean-toolchain.sh,target=/tmp/install-lean-toolchain.sh \
     export GITHUB_TOKEN="$(cat /run/secrets/github_token 2>/dev/null || true)" \
-    && MISE_ENV=aeneas mise exec -- elan toolchain install "${LEAN_TOOLCHAIN}" \
-    && tc="$(ls -d /opt/aeneas/elan/toolchains/*/ | head -n1)" \
-    && for b in lean lake leanc; do ln -sf "${tc}bin/${b}" "/usr/local/bin/${b}"; done \
-    && lean --version
+    && MISE_ENV=aeneas mise exec -- bash /tmp/install-lean-toolchain.sh /opt/aeneas/src/backends/lean/lean-toolchain
 
 RUN --mount=type=secret,id=github_token \
     export GITHUB_TOKEN="$(cat /run/secrets/github_token 2>/dev/null || true)" \

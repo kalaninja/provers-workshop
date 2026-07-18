@@ -15,3 +15,4 @@ verifast_tooling_image := env_var_or_default("VERIFAST_TOOLING_IMAGE", "workshop
 # Internal shared bases consumed by the split prover Dockerfiles.
 tooling_base_bookworm_image := env_var_or_default("TOOLING_BASE_BOOKWORM_IMAGE", "workshop-tooling-base-bookworm:dev")
 tooling_base_trixie_image := env_var_or_default("TOOLING_BASE_TRIXIE_IMAGE", "workshop-tooling-base-trixie:dev")
+tooling_base_opam_image := env_var_or_default("TOOLING_BASE_OPAM_IMAGE", "workshop-tooling-base-opam:dev")
