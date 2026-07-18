@@ -1,8 +1,8 @@
 import 'common.just'
 
-# Build a Dockerfile tooling stage. Passes GITHUB_TOKEN as a BuildKit secret when available
+# Build a tooling stage from the selected Dockerfile. Passes GITHUB_TOKEN as a BuildKit secret
 # (GitHub-hosted tools download via the API; the token avoids anonymous rate limits).
-_build target image build_args="":
+_build dockerfile target image build_args="":
     #!/usr/bin/env bash
     set -euo pipefail
     if [[ -n "${SKIP_IMAGE_BUILD:-}" ]]; then exit 0; fi
@@ -12,45 +12,59 @@ _build target image build_args="":
     fi
     if [[ -n "${token}" ]]; then
         GITHUB_TOKEN="${token}" DOCKER_BUILDKIT=1 docker build \
+            --file {{ dockerfile }} \
             --target {{ target }} {{ build_args }} \
             --secret id=github_token,env=GITHUB_TOKEN \
             --tag {{ image }} .
     else
         DOCKER_BUILDKIT=1 docker build \
+            --file {{ dockerfile }} \
             --target {{ target }} {{ build_args }} \
             --tag {{ image }} .
     fi
 
+# Build-arg that points a split prover Dockerfile's FROM at its shared base image tag.
+bookworm_base_build_arg := "--build-arg WORKSHOP_TOOLING_BASE_IMAGE=" + tooling_base_bookworm_image
+trixie_base_build_arg := "--build-arg WORKSHOP_TOOLING_BASE_IMAGE=" + tooling_base_trixie_image
+
+_build-bookworm-prover dockerfile target image: \
+    (_build "Dockerfile" "tooling-base" tooling_base_bookworm_image) \
+    (_build dockerfile target image bookworm_base_build_arg)
+
+_build-trixie-prover dockerfile target image: \
+    (_build "Dockerfile" "tooling-base" tooling_base_trixie_image "--build-arg TOOLING_BASE_IMAGE=debian:trixie-slim") \
+    (_build dockerfile target image trixie_base_build_arg)
+
 # Build the slim Rust tooling image
-build-rust: (_build "rust-tooling" rust_tooling_image)
+build-rust: (_build "Dockerfile" "rust-tooling" rust_tooling_image)
 
 # Build the Solana tooling image (rust + Agave/SBF)
-build-solana: (_build "solana-tooling" solana_tooling_image)
+build-solana: (_build "Dockerfile" "solana-tooling" solana_tooling_image)
 
 # Build the Node tooling image (codama client codegen only)
-build-node: (_build "node-tooling" node_tooling_image)
+build-node: (_build "Dockerfile" "node-tooling" node_tooling_image)
 
 # Build the Creusot formal-verification tooling image (creusot nightly + Why3/SMT)
-build-creusot: (_build "creusot-tooling" creusot_tooling_image)
+build-creusot: (_build-bookworm-prover "docker/creusot.Dockerfile" "creusot-tooling" creusot_tooling_image)
 
 # Build the Kani bounded-model-checking tooling image (kani-verifier + CBMC backend)
-build-kani: (_build "kani-tooling" kani_tooling_image)
+build-kani: (_build-bookworm-prover "docker/kani.Dockerfile" "kani-tooling" kani_tooling_image)
 
 # Build the Verus tooling image (verus + cargo-verus + bundled Z3 over the pinned 1.96.0
-# toolchain). Overrides the base to trixie: the verus binaries need glibc >= 2.39 (bookworm has 2.36).
-build-verus: (_build "verus-tooling" verus_tooling_image "--build-arg TOOLING_BASE_IMAGE=debian:trixie-slim")
+# toolchain). Uses the shared trixie base: the binaries need glibc >= 2.39 (bookworm has 2.36).
+build-verus: (_build-trixie-prover "docker/verus.Dockerfile" "verus-tooling" verus_tooling_image)
 
 # Build the Flux refinement-typing tooling image (flux built from source + liquid-fixpoint + Z3
 # over the pinned nightly-2025-11-25 toolchain). Overrides the base to trixie: the prebuilt Z3
 # release asset needs glibc >= 2.39 (bookworm has 2.36).
-build-flux: (_build "flux-tooling" flux_tooling_image "--build-arg TOOLING_BASE_IMAGE=debian:trixie-slim")
+build-flux: (_build-trixie-prover "docker/flux.Dockerfile" "flux-tooling" flux_tooling_image)
 
 # Build the hax-to-Lean tooling image (published cargo frontend/driver/Rust engine, the matching
 # nightly, elan/Lean, the native OCaml protocol helper, and hax's prebuilt Lean proof library).
 # Stays on bookworm; opam/OCaml exist only in the isolated helper-builder stage.
-build-hax: (_build "hax-tooling" hax_tooling_image)
+build-hax: (_build-bookworm-prover "docker/hax.Dockerfile" "hax-tooling" hax_tooling_image)
 
 # Build the Aeneas interactive-proof tooling image (Charon + Aeneas built from source via opam, plus
 # a Lean/elan toolchain and the mathlib-backed Aeneas Lean library). The heaviest lane; stays on
 # bookworm (Lean/elan and the rustup nightly support glibc 2.36).
-build-aeneas: (_build "aeneas-tooling" aeneas_tooling_image)
+build-aeneas: (_build-bookworm-prover "docker/aeneas.Dockerfile" "aeneas-tooling" aeneas_tooling_image)

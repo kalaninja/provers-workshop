@@ -59,8 +59,8 @@ Distilled from the Creusot lane; this is the template a new prover copies.
 - Prover-only dependencies go under `[target.'cfg(<prover>)'.dependencies]` in
   that prover's crate, the way `creusot-std` is wired in `ticketing-creusot`
   today. The interface crate stays verifier-free.
-- A lane of its own: `mise.<prover>.toml` selected by `MISE_ENV=<prover>`, a
-  `<prover>-tooling` Dockerfile stage, an image variable in `just/common.just`,
+- A lane of its own: `mise/config.<prover>.toml` selected by `MISE_ENV=<prover>`, a
+  `docker/<prover>.Dockerfile` with a `<prover>-tooling` stage, an image variable in `just/common.just`,
   a `build-<prover>` recipe in `just/tooling.just`, and a `just/<prover>.just`
   module with at least `verify`. `scripts/docker/run-tooling.sh` is touched
   only if the tool needs special HOME/XDG plumbing (Creusot does, for opam).
@@ -238,7 +238,7 @@ scaffold:
 - **Built from source, pinned by commit.** Flux publishes no release, crates.io
   crate, or rustup component, and its install is a custom `cargo xtask install`
   (not a mise backend like kani/verus), so only that build lives in the
-  Dockerfile - the nightly toolchain and both solver backends (Z3 4.16,
+  Flux Dockerfile - the nightly toolchain and both solver backends (Z3 4.16,
   liquid-fixpoint) are pinned via mise, like the other lanes. Like Creusot/Verus
   it is a rustc driver that pins but does not ship its nightly
   (nightly-2025-11-25, resolved at runtime via `rustup which`); its prebuilt Z3

@@ -1,6 +1,6 @@
 # Toolchain for the Aeneas lane, selected with MISE_ENV=aeneas. Aeneas extracts Rust through Charon
 # (a custom rustc driver) into an LLBC model, then translates it to Lean for interactive proof. Two
-# tools mise can pin here; the OCaml-built Charon/Aeneas binaries themselves live in the Dockerfile
+# tools mise can pin here; the OCaml-built binaries themselves live in docker/aeneas.Dockerfile
 # (no release, crates.io crate, or rustup component - a from-source build like Creusot's opam build).
 #
 # (1) Charon's pinned nightly. Charon is a rustc driver, so it needs rustc-dev + rust-src +

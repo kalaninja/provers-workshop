@@ -46,14 +46,26 @@ verus_changed=false
 flux_changed=false
 aeneas_changed=false
 hax_changed=false
+shared_tooling_changed=false
 
-has '^(crates/|clients/|idl/|Cargo\.toml|Cargo\.lock|rustfmt\.toml|clippy\.toml|mise/config(\.[a-z]+)?\.toml|Dockerfile)' && rust_changed=true
-has '^(crates/ticketing/|mise/config\.creusot\.toml|just/creusot\.just|why3find\.json|verif/|Dockerfile)' && creusot_changed=true
-has '^(crates/ticketing/kani/|mise/config\.kani\.toml|just/kani\.just)' && kani_changed=true
-has '^(crates/ticketing/verus/|mise/config\.verus\.toml|just/verus\.just)' && verus_changed=true
-has '^(crates/ticketing/flux/|mise/config\.flux\.toml|just/flux\.just)' && flux_changed=true
-has '^(crates/ticketing/aeneas/|mise/config\.aeneas\.toml|just/aeneas\.just|scripts/aeneas/|verif/ticketing_aeneas/)' && aeneas_changed=true
-has '^(crates/ticketing/hax/|mise/config\.hax\.toml|just/hax\.just|scripts/hax/|verif/ticketing_hax/)' && hax_changed=true
+has '^(crates/|clients/|idl/|Cargo\.toml|Cargo\.lock|rustfmt\.toml|clippy\.toml|mise/config(\.[a-z]+)?\.toml)' && rust_changed=true
+has '^(crates/ticketing/|mise/config\.creusot\.toml|just/creusot\.just|why3find\.json|verif/|docker/creusot\.Dockerfile$)' && creusot_changed=true
+has '^(crates/ticketing/kani/|mise/config\.kani\.toml|just/kani\.just|docker/kani\.Dockerfile$)' && kani_changed=true
+has '^(crates/ticketing/verus/|mise/config\.verus\.toml|just/verus\.just|docker/verus\.Dockerfile$)' && verus_changed=true
+has '^(crates/ticketing/flux/|mise/config\.flux\.toml|just/flux\.just|docker/flux\.Dockerfile$)' && flux_changed=true
+has '^(crates/ticketing/aeneas/|mise/config\.aeneas\.toml|just/aeneas\.just|scripts/aeneas/|verif/ticketing_aeneas/|docker/aeneas\.Dockerfile$)' && aeneas_changed=true
+has '^(crates/ticketing/hax/|mise/config\.hax\.toml|just/hax\.just|scripts/hax/|verif/ticketing_hax/|docker/hax\.Dockerfile$)' && hax_changed=true
+has '^(Dockerfile|just/common\.just|just/tooling\.just)$' && shared_tooling_changed=true
+
+if $shared_tooling_changed; then
+  rust_changed=true
+  creusot_changed=true
+  kani_changed=true
+  verus_changed=true
+  flux_changed=true
+  aeneas_changed=true
+  hax_changed=true
+fi
 
 if $rust_changed; then
   run just rust fmt-check

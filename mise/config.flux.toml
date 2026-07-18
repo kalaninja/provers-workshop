@@ -1,6 +1,6 @@
 # Wrapper toolchain for the Flux lane, selected with MISE_ENV=flux. Flux is a rustc driver whose
 # custom `cargo xtask install` (flux-driver + precompiled spec libs, not a plain `cargo install`)
-# cannot ride a mise backend, so the from-source build lives in the Dockerfile; everything mise CAN
+# cannot ride a mise backend, so the from-source build lives in docker/flux.Dockerfile; everything mise CAN
 # pin, it does here. Like Creusot/Verus, Flux pins but does not ship its nightly (rustc-dev/rust-src/
 # llvm-tools, resolved through rustup) - mirror Flux's own rust-toolchain.toml when upgrading it.
 [tools]

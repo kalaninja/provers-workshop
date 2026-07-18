@@ -77,12 +77,13 @@ Three instructions over two PDA-backed accounts:
 
 Everything else - pinned Rust toolchains, the Agave/SBF
 toolchain, node/pnpm for codegen, the verifiers and their solvers - lives in
-the tooling images built from the repo's `Dockerfile`. Every tool mise has a
+the tooling images built from the repo's Dockerfiles. Every tool mise has a
 backend for is pinned in `mise*.toml` (toolchains, Agave, kani-verifier, the
-Verus bundle, verusfmt, cargo-hax, the hax driver/Rust engine, elan); the
-`Dockerfile` owns the rest (apt packages, the pinned mise itself, Creusot's
-opam build, Kani's setup bundle, SBF platform-tools, hax's isolated opam-built
-protocol helper, and the pinned hax Lean proof library).
+Verus bundle, verusfmt, cargo-hax, the hax driver/Rust engine, elan); the root
+`Dockerfile` and `docker/*.Dockerfile` own the rest (apt packages, the pinned
+mise itself, Creusot's opam build, Kani's setup bundle, SBF platform-tools,
+hax's isolated opam-built protocol helper, and the pinned hax Lean proof
+library).
 Images build on demand the first time a recipe needs them; the Creusot image
 is the slow one (it compiles Why3 and the provers through opam - expect tens
 of minutes once).
@@ -127,7 +128,8 @@ just init-hooks              # wire the repo-tracked pre-push hook into this clo
 ```
 mise/config.toml            tool pins (stable Rust, just, nextest, node, pnpm)
 mise/config.<env>.toml      per-lane overlays: nightly, solana, creusot, kani, verus, flux, aeneas, hax (MISE_ENV=<env>)
-Dockerfile                  tooling stages: base / rust / node / solana / creusot / kani / verus / flux / aeneas / hax
+Dockerfile                  shared base plus rust / node / solana tooling stages
+docker/                     one Dockerfile per prover lane, built from a tagged shared base
 scripts/docker/run-tooling.sh   docker-run wrapper every recipe goes through
 scripts/hooks/pre-push      change-scoped checks (Rust + each verifier lane)
 just/                       recipe modules (rust, solana, creusot, kani, verus, flux, aeneas, hax, tooling)

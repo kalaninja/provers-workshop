@@ -4,5 +4,5 @@
 [tools]
 rust = { version = "1.96.0", profile = "minimal" }
 # cargo-kani/kani, built from crates.io by mise's cargo backend; its CBMC/kissat bundle and
-# nightly are fetched separately by `cargo kani setup` into KANI_HOME (Dockerfile).
+# nightly are fetched separately by `cargo kani setup` into KANI_HOME (docker/kani.Dockerfile).
 "cargo:kani-verifier" = "0.67.0"

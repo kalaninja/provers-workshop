@@ -32,7 +32,8 @@
   the Verus bundle, verusfmt, Flux's Z3 and liquid-fixpoint, Aeneas's Charon nightly and elan,
   cargo-hax plus its driver/Rust engine and elan);
   formatting uses `MISE_ENV=nightly`
-- `Dockerfile` defines the containerized tooling stages and owns what mise cannot express: apt
+- `Dockerfile` defines the shared base plus Rust/Node/Solana tooling stages;
+  `docker/*.Dockerfile` defines one image per prover lane. Together they own what mise cannot express: apt
   packages, the pinned mise itself, Creusot's opam-built toolchain, Kani's `cargo kani setup`
   bundle, Flux's from-source build (flux-driver + precompiled spec libs), Aeneas's opam-built
   Charon+Aeneas and its Lean/mathlib toolchain, hax's isolated opam-built native helper plus pinned

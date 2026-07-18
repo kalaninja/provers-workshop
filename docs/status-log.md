@@ -3,6 +3,10 @@
 The dated chronology of [the prover roadmap](provers.md): what landed in each
 lane and what it taught, newest first.
 
+- **2026-07-17** - tooling Dockerfiles split by responsibility: the root file now owns only the
+  shared base plus Rust/Node/Solana stages, while each prover lane has its own file under
+  `docker/`. The `just tooling build-*` interface and final image tags are unchanged;
+  prover builds first refresh a tagged bookworm or trixie base, avoiding bootstrap duplication.
 - **2026-07-17** - hax ticketing cores wired up: `ticketing-hax` grew from the
   smoke target into the full Pinocchio program (trusted `instructions/` shells +
   `entrypoint!` + `cdylib`, `flows/`/`domain/` cores), building a
