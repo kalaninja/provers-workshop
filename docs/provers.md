@@ -104,6 +104,72 @@ Columns fill in as lanes land.
 | Toolchain fit | own nightly (2026-04-21) + opam-built Why3/solvers; the heaviest image | self-contained bundle: kani-verifier 0.67.0 (mise cargo backend) + CBMC/kissat via `cargo kani setup`; light image | release bundle (verus `0.2026.07.12` rolling + bundled Z3 4.12.5, mise github backend) over a pinned stable 1.96.0 rustup toolchain; needs glibc >= 2.39 so its base is trixie not the shared bookworm; `vstd` pinned from crates.io (newest, `2026-07-12`); no stable release newer than 07-05 yet, re-pin when one lands | built from source (`cargo xtask install`) at a pinned git rev - no release/crate/rustup component; pins but does not ship nightly-2025-11-25 (rustc-dev/rust-src/llvm-tools via rustup); Z3 4.16 (glibc-2.39) + liquid-fixpoint (floating `nightly` tag) pinned via mise github backends, so its base is trixie like Verus | the heaviest lane: opam-built Charon+Aeneas (pinned commits, Charon via Aeneas's `charon-pin`) + a Lean `v4.31.0`/elan toolchain + the mathlib tree (prebuilt cache, not compiled). Stays on bookworm. Not hermetic through `lake` (re-clones mathlib), so checked via `lean` + `LEAN_PATH` against the baked oleans; the cdylib forces `charon --sysroot default` | `cargo-hax`/`hax-driver`/`hax-rust-engine` `0.3.7` (mise cargo backend) over `nightly-2025-11-08` + elan `4.2.3`/Lean `v4.29.0-rc1`; the hax Lean library prebuilt from commit `d8b5b3d`. At `0.3.7` the Lean backend delegates THIR import to a native OCaml helper (opam-built in isolation, binary only), so the image is Aeneas-class. Stays on bookworm; checked via `lean` (not `lake`) against baked oleans | - | blocked before compilation: the 2023 release bundle uses Rust/Cargo 1.73 and rejects this workspace's resolver 3 manifest |
 | Maintenance | active, research-led (v0.12.0 pinned) | active (AWS); drives the std verification campaign | active, research-led (weekly releases; drives a Rust std-verification effort) | active, research-led (UCSD); no tagged releases - git-HEAD only | active, research-led (Inria/AeneasVerif; Microsoft uses it for the SymCrypt Rust port). No semantic releases - dated `nightly-*` tags only, Charon pinned via Aeneas's `charon-pin` | active, research-led (Cryspen); powers libcrux's verified ML-KEM (shipped in Firefox and Signal). The Lean backend is experimental at `0.3.7` | - | latest release 2023-08-22; default branch last changed 2024-03-26 and still pins a 2023 nightly |
 
+## Solver / backend support
+
+What each tool *can* target in general - independent of what this workshop pins
+(the pinned choice is in parentheses). The roster splits on what a "backend"
+even means: an automated SMT/SAT solver the tool discharges verification
+conditions to, versus an interactive theorem prover the tool *translates into*
+(where automation only runs under tactics, so picking a backend means picking an
+ITP). Point-in-time, same review date as above.
+
+### Automated - SMT / SAT
+
+| Prover | Intermediate layer | Backends it supports | Multiple? |
+| --- | --- | --- | --- |
+| Creusot | translates to Why3 | Why3 dispatches each VC to any of its solvers: Alt-Ergo, Z3, CVC4/CVC5 (SMT), plus Coq/Isabelle as interactive fallback (workshop: the Alt-Ergo/Z3/CVC5 ensemble via `why3find`) | yes - a solver ensemble |
+| Kani | bit-blasts MIR -> CBMC | CBMC's SAT backends: MiniSat (default), CaDiCaL, Kissat, selectable per harness via `#[kani::solver(...)]`; CBMC can also emit `--smt2` to an external SMT solver (workshop: the `cargo kani setup` bundle - CBMC + Kissat) | yes - SAT backend is a choice |
+| Verus | SMT over a Rust dialect | Z3 only, bundled with the release | no |
+| Flux | refinement types -> liquid-fixpoint | liquid-fixpoint drives an SMT solver: Z3 (default), also CVC4/CVC5 (workshop: Z3 4.16) | nominal - Z3 in practice |
+| Prusti (blocked) | annotations -> Viper | two Viper engines - Silicon (symbolic execution) and Carbon (VCG -> Boogie); both bottom out on Z3 | two engines, one solver |
+| VeriFast (on hold) | separation logic, symbolic execution | its built-in Redux prover, optionally Z3 as an external SMT | yes - Redux / Z3 |
+
+### Interactive - translation to an ITP
+
+The backend is the target theorem prover the Rust is translated into; SMT
+automation (e.g. Z3) only runs inside tactics, so choosing a backend means
+choosing an ITP.
+
+| Prover | Translates into | Multiple? |
+| --- | --- | --- |
+| Aeneas | Lean (primary), F*, Coq/Rocq, HOL4 (workshop: Lean) | yes - 4 targets |
+| hax | F*, Coq/Rocq, Lean, plus the crypto-oriented ProVerif, EasyCrypt, SSProve (workshop: Lean only) | yes - many |
+
+### Why Lean for both ITP lanes
+
+Both Aeneas and hax can target other ITPs, yet the workshop pins both to Lean 4
+on purpose. The driver is comparability, not a claim that Lean is the strongest
+backend:
+
+- **Same target keeps the comparison clean.** Aeneas and hax share the
+  translate-then-prove quadrant, so the point of running both is to compare the
+  *pipelines* (Charon/LLBC + the Aeneas Std vs hax's Rust engine + the
+  `RustM`/`mvcgen` encoding), not two different ITPs. Fixing one target ITP is
+  what isolates that difference; hax's F*/Rocq and Aeneas's F*/Rocq/HOL4 are out
+  of scope for exactly that reason.
+- **Lean is first-class for both.** It is Aeneas's primary backend and hax's
+  actively-developed one - the one target where neither lane sits on a
+  second-tier path.
+- **mathlib earns its place on the arithmetic.** Both lanes *prove* the
+  nonlinear `capacity * price <= u64::MAX` via mathlib monotonicity, where Flux
+  has to trust it - a direct payoff of Lean's library ecosystem.
+- **Production precedent under Lean.** Microsoft verifies the Rust port of
+  SymCrypt through Aeneas -> Lean, so the path is not experimental.
+- **One ITP toolchain.** A single Lean/elan/mathlib stack serves both lanes
+  instead of also standing up an F*/Rocq environment - and these are already the
+  two heaviest images in the roster.
+
+### The dividing line
+
+- Creusot, Kani, Verus, Flux, Prusti, VeriFast pick a backend *automatically* -
+  an SMT or SAT query decides the proof.
+- Aeneas and hax translate into an ITP where the proof is written by hand;
+  automation only appears under tactics.
+- Genuinely multi-backend in this sense: Creusot (SMT ensemble via Why3), Aeneas
+  and hax (several ITP targets), Kani (SAT-solver choice), VeriFast (Redux/Z3).
+  Verus is single-backend (Z3); Flux and Prusti nominally allow alternatives but
+  bottom out on Z3.
+
 ## Prover notes
 
 ### 1. Creusot - wired up
