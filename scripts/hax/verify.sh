@@ -28,9 +28,14 @@ mkdir -p "${extraction_dir}"
 # but undeclared, and this file (the declared trusted computing base) supplies the logical model the
 # glue `lean::replace` definitions and the proofs are written against.
 gen="${extraction_dir}/ticketing_hax.lean"
-awk 'NR==FNR { pre = pre $0 ORS; next }
+# Read the preamble in BEGIN via getline (not the NR==FNR two-file idiom, which swallows the whole
+# generated file into the preamble buffer when model_preamble.lean is empty and produces a vacuous
+# green). An empty/missing preamble now passes the generation through unspliced, so Lean fails on the
+# undeclared wire types instead of compiling nothing and reporting success.
+awk -v pre_file="${lean_dir}/model_preamble.lean" '
+     BEGIN { while ((getline line < pre_file) > 0) pre = pre line ORS }
      /^namespace / && !spliced { printf "%s", pre; spliced = 1 }
-     { print }' "${lean_dir}/model_preamble.lean" "${gen}" > "${gen}.tmp"
+     { print }' "${gen}" > "${gen}.tmp"
 mv "${gen}.tmp" "${gen}"
 
 # Drive Lean directly instead of `lake build`: Lake re-resolves Hax's quote4 dependency into this
