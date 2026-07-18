@@ -42,12 +42,13 @@ identical contracts.
 | 4 | [Flux](https://github.com/flux-rs/flux) | refinement (liquid) types | wired up |
 | 5 | [Aeneas](https://github.com/AeneasVerif/aeneas) | functional translation to Lean | wired up |
 | 6 | [hax](https://github.com/cryspen/hax) | translation to F* / Rocq / Lean | wired up - 5/6 cores proved in Lean |
-| 7 | [VeriFast](https://github.com/verifast/verifast) | separation logic | on hold |
+| 7 | [VeriFast](https://github.com/verifast/verifast) | separation logic | scaffolded - smoke verify wired |
 | 8 | [Prusti](https://github.com/viperproject/prusti-dev) | deductive, Viper backend | blocked - edition 2024 / resolver 3 unsupported |
 
 Creusot, Kani, Verus, Flux, and Aeneas are wired up today, and the hax-to-Lean
 lane proves five of its six cores in Lean (the `ticket_buy` composition is the
-one pending proof).
+one pending proof). The VeriFast lane is scaffolded: image, pins, and an
+end-to-end smoke verification are in place, with the real cores still to land.
 The ordering rationale, integration ground rules, and the running comparison live in the
 roadmap index [docs/provers.md](docs/provers.md); each wired lane has a full
 report next to it ([docs/creusot.md](docs/creusot.md),
@@ -120,6 +121,8 @@ just aeneas replay           # deterministically re-check the committed Lean pro
 just hax verify              # extract Rust -> Lean and compile the inline core proofs
 just hax version             # show the pinned hax engine and Lean versions
 
+just verifast verify         # smoke-verify the VeriFast pipeline (Rust -> MIR -> Redux)
+
 just init-hooks              # wire the repo-tracked pre-push hook into this clone
 ```
 
@@ -127,12 +130,12 @@ just init-hooks              # wire the repo-tracked pre-push hook into this clo
 
 ```
 mise/config.toml            tool pins (stable Rust, just, nextest, node, pnpm)
-mise/config.<env>.toml      per-lane overlays: nightly, solana, creusot, kani, verus, flux, aeneas, hax (MISE_ENV=<env>)
+mise/config.<env>.toml      per-lane overlays: nightly, solana, creusot, kani, verus, flux, aeneas, hax, verifast (MISE_ENV=<env>)
 Dockerfile                  shared base plus rust / node / solana tooling stages
 docker/                     one Dockerfile per prover lane, built from a tagged shared base
 scripts/docker/run-tooling.sh   docker-run wrapper every recipe goes through
 scripts/hooks/pre-push      change-scoped checks (Rust + each verifier lane)
-just/                       recipe modules (rust, solana, creusot, kani, verus, flux, aeneas, hax, tooling)
+just/                       recipe modules (rust, solana, creusot, kani, verus, flux, aeneas, hax, verifast, tooling)
 
 crates/ticketing/interface  wire layer: byte layouts + program-side helpers (shared by all provers)
 crates/ticketing/creusot    the Creusot program crate: trusted shells + verified cores (one crate per prover)

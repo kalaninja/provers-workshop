@@ -27,10 +27,10 @@
 ## Source Of Truth
 
 - `mise/config.toml` plus the `mise/config.<env>.toml` overlays (nightly, solana, creusot, kani,
-  verus, flux, aeneas, hax) pin every tool mise has a backend for: the rustup toolchains, node/pnpm/just,
-  and the ubi/aqua/cargo/github-backend binaries (cargo-machete, cargo-nextest, Agave, kani-verifier,
-  the Verus bundle, verusfmt, Flux's Z3 and liquid-fixpoint, Aeneas's Charon nightly and elan,
-  cargo-hax plus its driver/Rust engine and elan);
+  verus, flux, aeneas, hax, verifast) pin every tool mise has a backend for: the rustup toolchains,
+  node/pnpm/just, and the ubi/aqua/cargo/github-backend binaries (cargo-machete, cargo-nextest,
+  Agave, kani-verifier, the Verus bundle, verusfmt, Flux's Z3 and liquid-fixpoint, Aeneas's Charon
+  nightly and elan, cargo-hax plus its driver/Rust engine and elan, the VeriFast release bundle);
   formatting uses `MISE_ENV=nightly`
 - `Dockerfile` defines the shared base plus Rust/Node/Solana tooling stages;
   `docker/*.Dockerfile` defines one image per prover lane. Together they own what mise cannot express: apt
@@ -41,6 +41,20 @@
 - `Justfile` and `just/*.just` are the primary command interface
 - `rustfmt.toml` and `clippy.toml` define Rust formatting and lint behavior
 - `why3find.json` defines the prover configuration
+
+## Adding A Lane
+
+There is no single lane registry; a new prover lane touches a fixed set of places. Walk the list:
+
+- `mise/config.<lane>.toml` - tool pins (prefer mise backends wherever one exists)
+- `docker/<lane>.Dockerfile` - apt packages and from-source builds mise cannot express, plus a
+  smoke check that actually verifies something end to end (not just `command -v`)
+- `Justfile` - the `mod <lane>` line
+- `just/<lane>.just` - the lane's recipes (at minimum `verify`; add `version` for diagnostics)
+- `just/common.just` - the `<lane>_tooling_image` variable
+- `just/tooling.just` - the `build-<lane>` recipe
+- `scripts/hooks/pre-push` - the lane's change flag, glob, shared-tooling fan-out entry, and run block
+- `README.md` - the prover table, the command tour, and the repo-map lane lists
 
 ## Native Commands
 
