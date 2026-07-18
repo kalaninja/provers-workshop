@@ -5303,6 +5303,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "ticketing-verifast"
+version = "0.1.0"
+
+[[package]]
 name = "ticketing-verus"
 version = "0.1.0"
 dependencies = [

@@ -10,6 +10,7 @@ verus_tooling_image := env_var_or_default("VERUS_TOOLING_IMAGE", "workshop-verus
 flux_tooling_image := env_var_or_default("FLUX_TOOLING_IMAGE", "workshop-flux-tooling:dev")
 aeneas_tooling_image := env_var_or_default("AENEAS_TOOLING_IMAGE", "workshop-aeneas-tooling:dev")
 hax_tooling_image := env_var_or_default("HAX_TOOLING_IMAGE", "workshop-hax-tooling:dev")
+verifast_tooling_image := env_var_or_default("VERIFAST_TOOLING_IMAGE", "workshop-verifast-tooling:dev")
 
 # Internal shared bases consumed by the split prover Dockerfiles.
 tooling_base_bookworm_image := env_var_or_default("TOOLING_BASE_BOOKWORM_IMAGE", "workshop-tooling-base-bookworm:dev")

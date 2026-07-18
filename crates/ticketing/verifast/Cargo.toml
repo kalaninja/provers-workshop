@@ -1,0 +1,16 @@
+[package]
+name = "ticketing-verifast"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# The first VeriFast commit deliberately contains only a verifier smoke target. The real Pinocchio
+# program and its decision cores arrive in the wire-up commit once the trusted/verified boundary is
+# known. VeriFast reads its contracts from `//@` comments, so there is no verifier dependency and no
+# cfg(verifast): ordinary workspace builds see plain Rust, like the Aeneas lane.
+[lib]
+crate-type = ["lib"]
+
+[lints]
+workspace = true

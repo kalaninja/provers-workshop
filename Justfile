@@ -22,6 +22,9 @@ mod aeneas 'just/aeneas.just'
 # Translation-to-Lean commands (hax)
 mod hax 'just/hax.just'
 
+# Separation-logic commands (VeriFast)
+mod verifast 'just/verifast.just'
+
 # Tooling commands
 mod tooling 'just/tooling.just'
 

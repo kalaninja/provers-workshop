@@ -1,2 +1,5 @@
 allow-mixed-uninlined-format-args = false
 allow-unwrap-in-tests = true
+# VeriFast is a CamelCase product name; allow it unbackticked in docs (the `..` keeps clippy's
+# built-in proper-noun list). Keeps tool names as plain prose, matching docs/provers.md's style.
+doc-valid-idents = ["VeriFast", ".."]

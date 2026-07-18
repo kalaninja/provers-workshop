@@ -46,6 +46,7 @@ verus_changed=false
 flux_changed=false
 aeneas_changed=false
 hax_changed=false
+verifast_changed=false
 shared_tooling_changed=false
 
 has '^(crates/|clients/|idl/|Cargo\.toml|Cargo\.lock|rustfmt\.toml|clippy\.toml|mise/config(\.[a-z]+)?\.toml)' && rust_changed=true
@@ -55,6 +56,7 @@ has '^(crates/ticketing/verus/|mise/config\.verus\.toml|just/verus\.just|docker/
 has '^(crates/ticketing/flux/|mise/config\.flux\.toml|just/flux\.just|docker/flux\.Dockerfile$)' && flux_changed=true
 has '^(crates/ticketing/aeneas/|mise/config\.aeneas\.toml|just/aeneas\.just|scripts/aeneas/|verif/ticketing_aeneas/|docker/aeneas\.Dockerfile$)' && aeneas_changed=true
 has '^(crates/ticketing/hax/|mise/config\.hax\.toml|just/hax\.just|scripts/hax/|verif/ticketing_hax/|docker/hax\.Dockerfile$)' && hax_changed=true
+has '^(crates/ticketing/verifast/|mise/config\.verifast\.toml|just/verifast\.just|docker/verifast\.Dockerfile$)' && verifast_changed=true
 has '^(Dockerfile|just/common\.just|just/tooling\.just)$' && shared_tooling_changed=true
 
 if $shared_tooling_changed; then
@@ -65,6 +67,7 @@ if $shared_tooling_changed; then
   flux_changed=true
   aeneas_changed=true
   hax_changed=true
+  verifast_changed=true
 fi
 
 if $rust_changed; then
@@ -98,6 +101,10 @@ fi
 
 if $hax_changed; then
   run just hax verify
+fi
+
+if $verifast_changed; then
+  run just verifast verify
 fi
 
 printf '\npre-push: all checks passed\n'

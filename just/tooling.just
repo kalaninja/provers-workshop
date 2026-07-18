@@ -68,3 +68,7 @@ build-hax: (_build-bookworm-prover "docker/hax.Dockerfile" "hax-tooling" hax_too
 # a Lean/elan toolchain and the mathlib-backed Aeneas Lean library). The heaviest lane; stays on
 # bookworm (Lean/elan and the rustup nightly support glibc 2.36).
 build-aeneas: (_build-bookworm-prover "docker/aeneas.Dockerfile" "aeneas-tooling" aeneas_tooling_image)
+
+# Build the VeriFast separation-logic tooling image (prebuilt binary distribution from GitHub
+# Releases: the bin/verifast CLI + built-in Redux prover). Stays on bookworm.
+build-verifast: (_build-bookworm-prover "docker/verifast.Dockerfile" "verifast-tooling" verifast_tooling_image)

@@ -1,0 +1,18 @@
+# Wrapper toolchain for the VeriFast lane, selected with MISE_ENV=verifast. VeriFast ships a
+# prebuilt Linux binary distribution on GitHub Releases (the bin/verifast CLI + bin/vfide IDE) as a
+# single archive whose executables sit under bin/, hence the github backend (like Verus's release
+# bundle). VeriFast's built-in Redux is the default prover, so there is no separate solver pin.
+# Re-pin `version` to the next named release when one lands (verify the current tag first).
+
+# VeriFast's Rust frontend shells out to `rustc +nightly-2025-11-25` (the toolchain that 26.01 was
+# built against), so the lane pins that exact nightly through rustup - the same nightly Flux pins.
+# rustc-dev/rust-src/llvm-tools cover the rustc_private frontend; bump this in lockstep with the
+# verifast pin (a new VeriFast release may target a different nightly).
+[tools]
+rust = { version = "nightly-2025-11-25", profile = "minimal", components = "rustc-dev,rust-src,llvm-tools" }
+
+[tools."github:verifast/verifast"]
+version = "26.01"
+
+[tools."github:verifast/verifast".platforms]
+linux-x64 = { asset_pattern = "verifast-*-linux.tar.gz" }
