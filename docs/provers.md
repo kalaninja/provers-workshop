@@ -89,7 +89,9 @@ running a tool for a while:
    artifacts, or re-verification from scratch every run.
 6. **Code bending** - how far the cores must bend to fit the tool.
 7. **Toolchain fit** - image weight, pinning story, hermetic-build friction.
-8. **Maintenance** - release cadence, bus factor, production users.
+8. **Maintenance** - release cadence, bus factor, backing organization
+   (named real-world adopters live in the *Notable use cases* table below, not
+   here).
 
 Columns fill in as lanes land.
 
@@ -102,7 +104,24 @@ Columns fill in as lanes land.
 | Artifact story | 23 `proof.json` sessions under `verif/`, deterministic replay in pre-push | none committed - re-verifies from scratch every run | none committed - re-verifies from scratch (fast SMT queries) | none committed - re-verifies from scratch (specs are inline attributes) | **best of the roster**: committed Lean (the generated model + the hand proofs) under `verif/ticketing_aeneas/`, deterministically re-checked by `just aeneas replay` in pre-push | generated Lean regenerated + re-checked from scratch each run (git-ignored); the committed artifacts are the inline Rust `lean::after` proofs + the trusted `model_preamble.lean`. No `replay` (as in the scaffold) | - | - |
 | Code bending | none in core bodies; extension-trait plumbing for foreign impls | cores call std directly (no axiom shims); predicates are `#[cfg(kani)]` bool fns on hand-written `*Ops` traits; PODs built field-by-field | low - the cores are written inside `verus!{}` and the proc-macro erases the ghost layer outside `cargo verus`, so the same source builds host+SBF like the siblings; residual bending is free `fn`s instead of `*Ops` traits, one `by (nonlinear_arith)` hint, and the verify recipe forcing `--cfg feature="nonzero_internals"` (vstd ships its `NonZero` model behind an undeclared feature) | moderate-high: `Event`/`Ticket` opaque, so cores read/write via trusted accessors (transparent extern-specs can't take the wire structs' padding + self-referential header); `NonZeroU64` bridged to `u64`, so accounting is `u64` and the exact clamp quantity is dropped; plain built-in `+`/`-`/`*` + a `mul_fits` guard replace `checked_*` (flux-core std specs invisible downstream). Offsetting win: no loop invariants or proof blocks, and plain rustfmt/clippy/rust-analyzer reach the whole crate (no verusfmt analog) | the *least* bending in the crate: the cores are ordinary Rust with no in-source spec at all, so host+SBF build the plainest source of any lane. The bending is *outside* the crate - the Charon config (`start_from`/`opaque`, `--sysroot default` to link the cdylib) and the separate Lean model + trusted glue specs. `NonZeroU64` kept out of the extracted cores (opaque), so accounting is `u64` like Flux | moderate: cores are `?`-free (extraction-first, like Aeneas) and carry inline `cfg(hax)` attribute strings (Lean `lean::after` triples + glue `lean::replace` models); `create_event`'s overflow gate rewritten to division (behavior-identical). Host+SBF build the plain program - the attributes erase off `cfg(hax)` | - | - |
 | Toolchain fit | own nightly (2026-04-21) + opam-built Why3/solvers; the heaviest image | self-contained bundle: kani-verifier 0.67.0 (mise cargo backend) + CBMC/kissat via `cargo kani setup`; light image | release bundle (verus `0.2026.07.12` rolling + bundled Z3 4.12.5, mise github backend) over a pinned stable 1.96.0 rustup toolchain; needs glibc >= 2.39 so its base is trixie not the shared bookworm; `vstd` pinned from crates.io (newest, `2026-07-12`); no stable release newer than 07-05 yet, re-pin when one lands | built from source (`cargo xtask install`) at a pinned git rev - no release/crate/rustup component; pins but does not ship nightly-2025-11-25 (rustc-dev/rust-src/llvm-tools via rustup); Z3 4.16 (glibc-2.39) + liquid-fixpoint (floating `nightly` tag) pinned via mise github backends, so its base is trixie like Verus | the heaviest lane: opam-built Charon+Aeneas (pinned commits, Charon via Aeneas's `charon-pin`) + a Lean `v4.31.0`/elan toolchain + the mathlib tree (prebuilt cache, not compiled). Stays on bookworm. Not hermetic through `lake` (re-clones mathlib), so checked via `lean` + `LEAN_PATH` against the baked oleans; the cdylib forces `charon --sysroot default` | `cargo-hax`/`hax-driver`/`hax-rust-engine` `0.3.7` (mise cargo backend) over `nightly-2025-11-08` + elan `4.2.3`/Lean `v4.29.0-rc1`; the hax Lean library prebuilt from commit `d8b5b3d`. At `0.3.7` the Lean backend delegates THIR import to a native OCaml helper (opam-built in isolation, binary only), so the image is Aeneas-class. Stays on bookworm; checked via `lean` (not `lake`) against baked oleans | - | blocked before compilation: the 2023 release bundle uses Rust/Cargo 1.73 and rejects this workspace's resolver 3 manifest |
-| Maintenance | active, research-led (v0.12.0 pinned) | active (AWS); drives the std verification campaign | active, research-led (weekly releases; drives a Rust std-verification effort) | active, research-led (UCSD); no tagged releases - git-HEAD only | active, research-led (Inria/AeneasVerif; Microsoft uses it for the SymCrypt Rust port). No semantic releases - dated `nightly-*` tags only, Charon pinned via Aeneas's `charon-pin` | active, research-led (Cryspen); powers libcrux's verified ML-KEM (shipped in Firefox and Signal). The Lean backend is experimental at `0.3.7` | - | latest release 2023-08-22; default branch last changed 2024-03-26 and still pins a 2023 nightly |
+| Maintenance | active, research-led (v0.12.0 pinned) | active (AWS-maintained) | active, research-led (weekly releases) | active, research-led (UCSD); no tagged releases - git-HEAD only | active, research-led (Inria/AeneasVerif). No semantic releases - dated `nightly-*` tags only, Charon pinned via Aeneas's `charon-pin` | active, research-led (Cryspen). The Lean backend is experimental at `0.3.7` | - | latest release 2023-08-22; default branch last changed 2024-03-26 and still pins a 2023 nightly |
+
+## Notable use cases
+
+The headline real-world (or flagship research) artifact each tool is known for -
+the single uniform home for this, so it is not restated scattered through the
+lane notes. Point-in-time, same review date as above.
+
+| Prover | Notable use case |
+| --- | --- |
+| Creusot | [CreuSAT](https://github.com/sarsko/CreuSAT) - a deductively verified, statically panic-free SAT solver in Rust, at a fraction of IsaSAT's proof size. The flagship Creusot artifact; a research showcase, not a production deployment |
+| Kani | AWS production use: [s2n-quic](https://github.com/aws/s2n-quic) (each harness runs as both a Bolero fuzz test and a Kani proof) and security-boundary proofs in [Firecracker](https://model-checking.github.io/kani-verifier-blog/2023/08/31/using-kani-to-validate-security-boundaries-in-aws-firecracker.html) (27 harnesses in CI); the primary tool of [verify-rust-std](https://github.com/model-checking/verify-rust-std) (16k+ harnesses) |
+| Verus | [VeriSMo](https://github.com/microsoft/verismo) - Microsoft's verified security module for AMD SEV-SNP confidential VMs, and [Anvil](https://github.com/anvil-verifier/anvil) - verified Kubernetes controllers (both OSDI '24 best-paper) |
+| Flux | [TickTock](https://dl.acm.org/doi/10.1145/3731569.3764856) - verified process/memory isolation in the production embedded OS [Tock](https://tockos.org) across its ARMv7-M and RISC-V MPU code (SOSP '25; surfaced 7 previously unknown bugs) |
+| Aeneas | [SymCrypt](https://lean-lang.org/use-cases/aeneas/) - Microsoft's verification of its Rust SymCrypt port, via Aeneas -> Lean |
+| hax | [libcrux](https://github.com/cryspen/libcrux)'s verified ML-KEM (Kyber), shipped in Firefox (vendored into NSS 3.118 as the default `mlkem768x25519`) and Signal's post-quantum ratchet - via hax's F* backend (this lane exercises the same tool through its Lean backend) |
+| VeriFast | one of the accepted tools in [verify-rust-std](https://model-checking.github.io/verify-rust-std/tools/verifast.html), aimed at the pointer-intensive `unsafe` modules its separation logic fits |
+| Prusti | research case studies only - absent from verify-rust-std, no named production adopter |
 
 ## Solver / backend support
 
@@ -265,8 +284,7 @@ is present but trusted; proving it needs specs on the unsafe parsers + a
 [Flux](https://github.com/flux-rs/flux) refines Rust's types with logical
 predicates (liquid types) and checks them by SMT with inference. Annotation
 overhead is near zero compared to contract-based tools and checking takes a
-fraction of a second; it has been used to
-[verify process isolation in Tock OS](https://events.ucsc.edu/event/cse-colloquium-flux-refinement-types-for-verified-rust-systems/).
+fraction of a second.
 
 Why fourth: the opposite end of the ergonomics spectrum before diving into
 ITPs. Specs become refined signatures (`#[flux_rs::sig(...)]`) and struct
@@ -328,8 +346,7 @@ a proved step, landing in the trusted-surface column as the honest cost.
 [Aeneas](https://github.com/AeneasVerif/aeneas) extracts Rust through
 [Charon](https://github.com/AeneasVerif/charon) into a pure functional model
 and proves it interactively - primarily in Lean (F*, Rocq and HOL4 backends
-exist). Microsoft uses it to
-[verify the Rust port of SymCrypt](https://lean-lang.org/use-cases/aeneas/).
+exist).
 
 Why fifth: the first interactive prover in the series. Proofs are written by
 hand in Lean (`progress`/`step`, `scalar_tac`, ...), a different cost model from
@@ -389,9 +406,7 @@ graph with pinocchio/bytemuck in it, or those get marked opaque.
 [hax](https://github.com/cryspen/hax) (Cryspen) translates a large subset of
 Rust into F*, Rocq or Lean; contracts are written in Rust as
 `hax_lib::requires/ensures` attributes - the closest ITP-flavored analog to
-this repo's cfg-gated attribute style. Production precedent:
-[libcrux](https://github.com/cryspen/libcrux)'s verified ML-KEM, shipped in
-Firefox and Signal.
+this repo's cfg-gated attribute style.
 
 Why sixth, right after Aeneas: same paradigm quadrant (translate, then prove
 in an ITP), so the experience transfers and the two pipelines can be compared
