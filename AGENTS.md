@@ -72,6 +72,7 @@ Prefer `just` recipes over ad hoc lower-level commands. Run from the repository 
 | Client wire-parity + SBF tests | `just solana test-client-rust` |
 | Prove / replay Creusot sessions | `just creusot verify`, `just creusot replay` |
 | Extract and prove the hax Lean lane | `just hax verify` |
+| Verify the VeriFast decision cores | `just verifast verify` |
 
 ## Repo Defaults
 
@@ -88,4 +89,6 @@ Prefer `just` recipes over ad hoc lower-level commands. Run from the repository 
 - For changes touching Creusot specs (`domain/`, `flows/`) or `verif/`, run `just creusot replay`
   (regenerate sessions with `just creusot verify` when specs changed)
 - For changes touching the hax crate, toolchain, scripts, or Lean project, run `just hax verify`
+- For changes touching the verifast crate, run `just verifast verify` (the detached model); for its
+  program code, also `just solana build ticketing verifast` and `just solana test-client-rust ticketing verifast`
 - Prefer `just rust clippy` before larger submissions

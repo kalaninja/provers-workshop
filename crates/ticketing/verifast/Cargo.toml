@@ -5,12 +5,29 @@ edition.workspace = true
 license.workspace = true
 publish.workspace = true
 
-# The first VeriFast commit deliberately contains only a verifier smoke target. The real Pinocchio
-# program and its decision cores arrive in the wire-up commit once the trusted/verified boundary is
-# known. VeriFast reads its contracts from `//@` comments, so there is no verifier dependency and no
-# cfg(verifast): ordinary workspace builds see plain Rust, like the Aeneas lane.
+# `lib` first: host builds the rlib; `cdylib` is what `cargo build-sbf` links into the deployable
+# `.so`. Behavior-identical program to the other lanes, with no in-source spec layer and no verifier
+# dependency (like the Aeneas lane). The VeriFast proof is a self-contained model of the decision
+# cores under `verification/model.rs`, verified by `just verifast verify` - VeriFast's Rust frontend
+# cannot ingest this crate's dependency graph (pinocchio/bytemuck/ticketing-interface), so it proves
+# a behaviorally-identical model rather than the shipping cores. See docs/verifast.md.
 [lib]
-crate-type = ["lib"]
+crate-type = ["lib", "cdylib"]
 
 [lints]
 workspace = true
+
+[dependencies]
+pinocchio = { workspace = true, features = ["cpi"] }
+pinocchio-log = { workspace = true, optional = true }
+pinocchio-system = { workspace = true }
+
+ticketing-interface = { workspace = true }
+
+[features]
+default = []
+# Gates the `entrypoint!` registration so the crate can be linked as a plain rlib (host builds)
+# without clashing over the program entrypoint; `cargo build-sbf` passes it to emit the `.so`.
+bpf-entrypoint = []
+# Compiles `pinocchio_log` instruction tracing into the dispatcher.
+logging = ["dep:pinocchio-log"]

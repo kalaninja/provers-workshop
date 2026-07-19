@@ -5305,6 +5305,12 @@ dependencies = [
 [[package]]
 name = "ticketing-verifast"
 version = "0.1.0"
+dependencies = [
+ "pinocchio",
+ "pinocchio-log",
+ "pinocchio-system",
+ "ticketing-interface",
+]
 
 [[package]]
 name = "ticketing-verus"

@@ -9,9 +9,12 @@ run := "MISE_ENV=verifast ./scripts/docker/run-tooling.sh " + verifast_tooling_i
 version: tooling::build-verifast
     {{ run }} sh -c 'verifast -help | head -n1'
 
-# Smoke-verify the VeriFast lane: bin/verifast drives the pinned rustc nightly to MIR and discharges
-# the ticketing-verifast smoke crate's inline separation-logic contract (Redux), proving the Rust ->
-# VeriFast pipeline end to end. Re-verifies from source each run; replaced by the real
-# ticketing-verifast cores when they land.
+# Verify the VeriFast lane: bin/verifast drives the pinned rustc nightly to MIR and discharges the
+# separation-logic contracts on the three decision cores' self-contained model
+# (`verification/model.rs`). VeriFast's Rust frontend cannot ingest the shipping program's dependency
+# graph (pinocchio/bytemuck/ticketing-interface), so it proves a behaviorally-identical model rather
+# than the shipping cores - see docs/verifast.md. `-allow_assume` enables the lane's one trusted
+# axiom, the `assume_correct` overflow-checked multiply (Creusot's `ax_checked_mul` analog).
+# Re-verifies from source each run; no committed proof session to replay.
 verify: tooling::build-verifast
-    {{ run }} verifast crates/ticketing/verifast/src/lib.rs
+    {{ run }} verifast -allow_assume crates/ticketing/verifast/verification/model.rs

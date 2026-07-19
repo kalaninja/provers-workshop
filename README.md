@@ -42,18 +42,20 @@ identical contracts.
 | 4 | [Flux](https://github.com/flux-rs/flux) | refinement (liquid) types | wired up |
 | 5 | [Aeneas](https://github.com/AeneasVerif/aeneas) | functional translation to Lean | wired up |
 | 6 | [hax](https://github.com/cryspen/hax) | translation to F* / Rocq / Lean | wired up - 5/6 cores proved in Lean |
-| 7 | [VeriFast](https://github.com/verifast/verifast) | separation logic | scaffolded - smoke verify wired |
+| 7 | [VeriFast](https://github.com/verifast/verifast) | separation logic | wired up - program + detached model |
 | 8 | [Prusti](https://github.com/viperproject/prusti-dev) | deductive, Viper backend | blocked - edition 2024 / resolver 3 unsupported |
 
-Creusot, Kani, Verus, Flux, and Aeneas are wired up today, and the hax-to-Lean
-lane proves five of its six cores in Lean (the `ticket_buy` composition is the
-one pending proof). The VeriFast lane is scaffolded: image, pins, and an
-end-to-end smoke verification are in place, with the real cores still to land.
-The ordering rationale, integration ground rules, and the running comparison live in the
-roadmap index [docs/provers.md](docs/provers.md); each wired lane has a full
-report next to it ([docs/creusot.md](docs/creusot.md),
+Creusot, Kani, Verus, Flux, Aeneas, and VeriFast are wired up today, and the
+hax-to-Lean lane proves five of its six cores in Lean (the `ticket_buy`
+composition is the one pending proof). The VeriFast lane ships a real program
+like the others, but VeriFast cannot verify its cores directly - its Rust
+frontend cannot ingest the `ticketing-interface` dependency graph - so its proof
+is a detached, behaviorally-identical model of the three cores (see its report). The ordering rationale, integration ground rules, and the running
+comparison live in the roadmap index [docs/provers.md](docs/provers.md); each
+wired lane has a full report next to it ([docs/creusot.md](docs/creusot.md),
 [docs/kani.md](docs/kani.md), [docs/verus.md](docs/verus.md),
-[docs/flux.md](docs/flux.md), [docs/aeneas.md](docs/aeneas.md)). What we
+[docs/flux.md](docs/flux.md), [docs/aeneas.md](docs/aeneas.md),
+[docs/verifast.md](docs/verifast.md)). What we
 compare per prover: what has to be marked trusted, how the contracts read,
 proof and replay speed, and how far the cores must bend to fit the tool.
 
@@ -121,7 +123,7 @@ just aeneas replay           # deterministically re-check the committed Lean pro
 just hax verify              # extract Rust -> Lean and compile the inline core proofs
 just hax version             # show the pinned hax engine and Lean versions
 
-just verifast verify         # smoke-verify the VeriFast pipeline (Rust -> MIR -> Redux)
+just verifast verify         # verify the three decision cores (detached VeriFast model)
 
 just init-hooks              # wire the repo-tracked pre-push hook into this clone
 ```

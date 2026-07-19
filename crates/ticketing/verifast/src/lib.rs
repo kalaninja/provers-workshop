@@ -1,36 +1,33 @@
-//! VeriFast separation-logic lane scaffold.
+//! Pinocchio ticketing program (VeriFast lane): trusted imperative shells +
+//! pure decision cores.
 //!
-//! This first commit proves one deliberately small, non-vacuous function and
-//! establishes the hermetic Rust -> VeriFast pipeline: `bin/verifast` drives
-//! `rustc +nightly-2025-11-25` to MIR, then the built-in Redux prover
-//! discharges the contract. The ticketing program and its real decision cores
-//! arrive only after that pipeline is known to work end to end. VeriFast reads
-//! the contract from the `//@` comments below, which are invisible to `rustc`,
-//! so there is no `cfg(verifast)` and no verifier dependency - ordinary builds
-//! see plain Rust, like the Aeneas lane.
+//! A port of the `ticketing-creusot` reference program (behavior-identical to
+//! every lane) with no in-source spec layer and no verifier dependency - like
+//! the Aeneas lane, ordinary `cargo build` and `cargo build-sbf` expand this to
+//! the real program with zero verification overhead. The crate is split along
+//! the verification boundary:
+//!
+//! - [`mod@instructions`] - the trusted imperative shells: account parsing, PDA
+//!   creation, clock reads, CPIs, persistence. Everything that touches the
+//!   Solana runtime.
+//! - `flows` - the decision cores: pure functions over wire-level state values.
+//! - `domain` - the accounting/lifecycle logic the cores call (clamp, pricing,
+//!   status step).
+//!
+//! VeriFast cannot verify these cores directly: its Rust frontend cannot ingest
+//! the crate's dependency graph (the external
+//! pinocchio/bytemuck/ticketing-interface types). The lane's proof
+//! is a self-contained, behaviorally-identical model of the three cores,
+//! discharged by `just verifast verify`; see docs/verifast.md for where the
+//! model lives and the cost.
 #![warn(missing_docs)]
 #![warn(rustdoc::broken_intra_doc_links)]
 
-/// Returns a fixed answer, pinned exactly by the VeriFast postcondition.
-///
-/// The postcondition `result == 42` is non-vacuous: a broken toolchain or prover would fail it
-/// rather than pass silently. `#[rustfmt::skip]` stops rustfmt from moving the `//@` contract, which
-/// VeriFast requires to sit between the signature and the body.
-#[rustfmt::skip]
-#[must_use]
-pub fn smoke() -> i32
-//@ req true;
-//@ ens result == 42;
-{
-    42
-}
+mod domain;
+mod flows;
+mod instructions;
 
-#[cfg(test)]
-mod tests {
-    use super::smoke;
+pub use instructions::process_instruction;
 
-    #[test]
-    fn smoke_returns_the_verified_answer() {
-        assert_eq!(smoke(), 42);
-    }
-}
+#[cfg(feature = "bpf-entrypoint")]
+pinocchio::entrypoint!(process_instruction);
