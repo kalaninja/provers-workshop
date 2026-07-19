@@ -12,6 +12,6 @@ use borsh::{BorshDeserialize, BorshSerialize};
 pub struct EventName {
     /// Number of significant bytes in `bytes`.
     pub len: u16,
-    /// Fixed-capacity UTF-8 storage.
+    /// Fixed-capacity byte storage (not validated as UTF-8).
     pub bytes: [u8; 64],
 }

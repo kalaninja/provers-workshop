@@ -310,8 +310,8 @@ mod tests {
     #[test]
     fn payer_pda_and_account_default_values_produce_no_identity_check() {
         assert!(parse_identity(&parse_quote!(payer)).unwrap().is_none());
-        assert!(parse_identity(&parse_quote!(pda("offering"))).unwrap().is_none());
-        assert!(parse_identity(&parse_quote!(account("issuer"))).unwrap().is_none());
+        assert!(parse_identity(&parse_quote!(pda("event"))).unwrap().is_none());
+        assert!(parse_identity(&parse_quote!(account("organizer"))).unwrap().is_none());
     }
 
     #[test]
@@ -371,7 +371,7 @@ mod tests {
                 #[codama(account(name = "system_program", default_value = program("system")))]
                 A,
                 #[codama(account(name = "buyer", signer, writable))]
-                #[codama(account(name = "vault", writable))]
+                #[codama(account(name = "ticket", writable))]
                 B,
             }
         };

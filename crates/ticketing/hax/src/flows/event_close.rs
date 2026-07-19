@@ -8,8 +8,8 @@ use crate::domain::{event::close_sales, glue::organizer_eq};
 /// SalesClosed`. Immutable fields are fixed and the status step is legal.
 ///
 /// The contract is the embedded Lean Hoare triple `close_event_spec` below
-/// (hax's `lean::after`, the same idiom the upstream `barrett`/`adc` examples
-/// use for rich postconditions): from the event invariant, the invariant is
+/// (hax's `lean::after`, which attaches a rich Lean postcondition to the
+/// extracted function): from the event invariant, the invariant is
 /// preserved, every field but `status` is pinned, and `Ok` holds exactly when
 /// the organizer matches and sales were open (then `open -> closed`), while on
 /// error the event is unchanged. Mirrors the Creusot lane's `close_event`

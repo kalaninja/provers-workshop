@@ -87,6 +87,8 @@ pub(crate) fn expand(trait_name: &syn::Ident, input: ExtensionImpl) -> syn::Resu
 
     Ok(quote! {
         #(#trait_attrs)*
+        // The generated trait copies each method's argument patterns onto a
+        // bodyless signature, which would otherwise lint.
         #[allow(patterns_in_fns_without_body)]
         #visibility trait #trait_name #generics {
             #(#trait_methods)*

@@ -55,7 +55,7 @@ comparison live in the roadmap index [docs/provers.md](docs/provers.md); each
 wired lane has a full report next to it ([docs/creusot.md](docs/creusot.md),
 [docs/kani.md](docs/kani.md), [docs/verus.md](docs/verus.md),
 [docs/flux.md](docs/flux.md), [docs/aeneas.md](docs/aeneas.md),
-[docs/verifast.md](docs/verifast.md)). What we
+[docs/hax.md](docs/hax.md), [docs/verifast.md](docs/verifast.md)). What we
 compare per prover: what has to be marked trusted, how the contracts read,
 proof and replay speed, and how far the cores must bend to fit the tool.
 
@@ -150,7 +150,7 @@ clients/                    codama-js codegen harness (runs in the node image)
 verif/                      proof projects/sessions (hax extraction is generated and ignored)
 why3find.json               prover configuration (alt-ergo, z3, cvc5 + tactics)
 docs/provers.md             prover roadmap index: roster, order, running comparison, summaries
-docs/<prover>.md            full per-lane reports (creusot.md, kani.md)
+docs/<prover>.md            full per-lane reports (one per wired lane)
 docs/status-log.md          dated chronology of the workshop
 ```
 

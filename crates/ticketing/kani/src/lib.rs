@@ -1,8 +1,9 @@
 //! Pinocchio ticketing program (Kani lane): trusted imperative shells +
 //! bounded-model-checked decision cores.
 //!
-//! The program is byte-identical to `ticketing-creusot`; only the spec layer
-//! differs. The crate is split along the verification boundary:
+//! The program is behavior-identical to the `ticketing-creusot` reference (as
+//! in every prover lane); only the spec layer differs. The crate is split
+//! along the verification boundary:
 //!
 //! - [`mod@instructions`] — the trusted imperative shells: account parsing, PDA
 //!   creation, clock reads, CPIs, and persistence. Everything that touches the

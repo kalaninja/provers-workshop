@@ -47,6 +47,12 @@ pub fn process_instruction(
         return Err(ProgramError::InvalidInstructionData);
     };
 
+    // Dispatch on the wire discriminator directly, parsing each instruction's
+    // args inline and passing them by reference - so the `TicketingInstruction`
+    // enum (sized to its biggest args variant, `EventCreate`) is never
+    // materialized on-chain. Each arm matches the instruction's named
+    // `TicketingInstruction::<NAME>` discriminant constant (its `#[repr(u8)]`
+    // tag).
     match *discriminator {
         TicketingInstruction::EVENT_CREATE => {
             dispatch!(event_create, &EventCreateArgs::parse(args)?)

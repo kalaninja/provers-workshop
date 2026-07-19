@@ -34,6 +34,8 @@ pub mod generated;
 /// `from_bytes` validates neither (see the caveats above); these gate on both.
 pub mod decode;
 
+#[cfg(feature = "fetch")]
+pub use decode::decode_checked_account;
 pub use decode::{CheckedAccount, DecodeError, decode_checked};
 pub use generated::{
     accounts, errors, instructions, programs, programs::TICKETING_ID, shared, types,

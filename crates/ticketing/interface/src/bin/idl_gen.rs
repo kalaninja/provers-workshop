@@ -49,6 +49,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     fs::create_dir_all(&scratch)?;
     let lib_path = crate_path.join("src/lib.rs");
     let version = env!("CARGO_PKG_VERSION");
+    // codama only parses the crate's AST; it never compiles this scratch
+    // manifest, so the `edition` pinned below is inert (kept fixed rather than
+    // tracking the workspace edition).
     let scratch_manifest = format!(
         "[package]\n\
          name = \"ticketing-interface\"\n\

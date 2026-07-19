@@ -174,7 +174,10 @@ impl EventOps for Event {
         Ok(())
     }
 
-    #[allow(clippy::match_wildcard_for_single_variants)]
+    #[allow(
+        clippy::match_wildcard_for_single_variants,
+        reason = "the wildcard rejects every non-open status, staying correct as `EventStatus` gains variants"
+    )]
     fn require_sales_open(&self) -> ProgramResult {
         match self.status {
             EventStatus::SalesOpen => Ok(()),

@@ -1,8 +1,9 @@
 //! Pinocchio ticketing program (Verus lane): trusted imperative shells +
 //! SMT-verified decision cores.
 //!
-//! The program is behavior-identical to `ticketing-creusot`/`ticketing-kani`;
-//! the spec layer is Verus. The crate is split along the verification boundary:
+//! The program is behavior-identical to the `ticketing-creusot` reference (as
+//! in every prover lane); the spec layer is Verus. The crate is split along
+//! the verification boundary:
 //!
 //! - [`mod@instructions`] - the trusted imperative shells: account parsing, PDA
 //!   creation, clock reads, CPIs, persistence. Everything that touches the

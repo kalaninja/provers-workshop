@@ -95,9 +95,10 @@ impl std::error::Error for DecodeError {
 
 /// Borsh-decodes `data` as `T`, but only if its leading 8 bytes equal
 /// `T::DISCRIMINATOR` — guarding against decoding a wrong-type or
-/// uninitialized account into a garbage value (both ticketing accounts share
-/// the same 16-byte header/`created_slot` prefix, so the discriminator is the
-/// only reliable type tag).
+/// uninitialized account into a garbage value. `Event` and `Ticket` share the
+/// same leading layout (8-byte header, then `created_slot`) and differ there
+/// only in the header's discriminator bytes, so the discriminator is the
+/// reliable type tag.
 ///
 /// The owner is not visible from raw bytes; use [`decode_checked_account`] (or
 /// check the owner yourself) when decoding an account you did not derive.
@@ -158,8 +159,9 @@ mod tests {
 
     #[test]
     fn rejects_wrong_type_before_deserializing() {
-        // Event bytes (152 B) would mis-decode as the 112-byte Ticket, but the
-        // discriminator gate rejects them first, without touching borsh.
+        // The discriminator gate rejects these before borsh runs. (Even
+        // without it, `try_from_slice` would error on the trailing bytes past
+        // the shorter Ticket layout, not silently mis-decode.)
         assert!(matches!(
             decode_checked::<Ticket>(&event_bytes()),
             Err(DecodeError::DiscriminatorMismatch),

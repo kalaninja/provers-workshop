@@ -53,7 +53,7 @@ pub fn process_instruction(
     // enum (sized to its biggest args variant, `EventCreate`) is never
     // materialized on-chain. Each arm matches the instruction's named
     // `TicketingInstruction::<NAME>` discriminant constant (its `#[repr(u8)]`
-    // tag); the Mollusk integration tests exercise one arm each.
+    // tag).
     match *discriminator {
         TicketingInstruction::EVENT_CREATE => {
             dispatch!(event_create, &EventCreateArgs::parse(args)?)

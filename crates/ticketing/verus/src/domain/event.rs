@@ -126,7 +126,10 @@ pub fn validate_organizer(e: &Event, organizer: &Address) -> (r: Result<(), Prog
 }
 
 /// Returns `Ok` when this event's ticket sales are open.
-#[allow(clippy::match_wildcard_for_single_variants)]
+#[allow(
+    clippy::match_wildcard_for_single_variants,
+    reason = "the wildcard rejects every non-open status, staying correct as `EventStatus` gains variants"
+)]
 pub fn require_sales_open(e: &Event) -> (r: Result<(), ProgramError>)
     ensures
         match r {

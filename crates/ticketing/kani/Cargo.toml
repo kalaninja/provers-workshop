@@ -6,8 +6,8 @@ license.workspace = true
 publish.workspace = true
 
 # `lib` first: Kani and host tests build the rlib; `cdylib` is what
-# `cargo build-sbf` links into the deployable `.so`. Byte-identical program to
-# `ticketing-creusot` - only the spec layer differs.
+# `cargo build-sbf` links into the deployable `.so`. Behavior-identical program
+# to `ticketing-creusot` - only the spec layer differs.
 [lib]
 crate-type = ["lib", "cdylib"]
 

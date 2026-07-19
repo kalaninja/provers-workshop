@@ -1,11 +1,10 @@
 //! Trusted imperative shells: the dispatcher and one handler per instruction.
 //!
-//! Everything in this module runs against the Solana runtime — account
-//! parsing, PDA creation, clock reads, CPIs, persistence. The byte-level
-//! front (discriminator match, args parsing, account-count rejection) is
-//! checked panic-free by the dispatcher harness in `crate::proofs`; the
-//! handler bodies past account parsing stay outside verification. Each
-//! handler keeps its decision logic in a `flows` core.
+//! Everything in this module runs against the Solana runtime - account
+//! parsing, PDA creation, clock reads, CPIs, persistence - and sits outside
+//! VeriFast's reach entirely: the lane's proof is the detached, behaviorally
+//! identical model of the three cores in `verification/model.rs`, not this
+//! crate's code. Each handler keeps its decision logic in a `flows` core.
 
 use pinocchio::{AccountView, Address, ProgramResult, error::ProgramError};
 use ticketing_interface::{
@@ -53,7 +52,7 @@ pub fn process_instruction(
     // enum (sized to its biggest args variant, `EventCreate`) is never
     // materialized on-chain. Each arm matches the instruction's named
     // `TicketingInstruction::<NAME>` discriminant constant (its `#[repr(u8)]`
-    // tag); the Mollusk integration tests exercise one arm each.
+    // tag).
     match *discriminator {
         TicketingInstruction::EVENT_CREATE => {
             dispatch!(event_create, &EventCreateArgs::parse(args)?)

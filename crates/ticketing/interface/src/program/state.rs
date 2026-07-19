@@ -25,7 +25,10 @@ pub trait StateAccount: CheckedBitPattern + NoUninit + Sized {
     ///
     /// Returns `Err(())` when `data.len()` does not equal [`Self::LEN`] or
     /// when the bytes are not a valid bit pattern for `Self`.
-    #[allow(clippy::result_unit_err)]
+    #[allow(
+        clippy::result_unit_err,
+        reason = "a failed layout check carries no data; the `read_from`/`read_from_mut` wrappers map it to a ProgramError"
+    )]
     fn cast(data: &[u8]) -> Result<&Self, ()> {
         if data.len() != Self::LEN {
             return Err(());
@@ -40,7 +43,10 @@ pub trait StateAccount: CheckedBitPattern + NoUninit + Sized {
     ///
     /// Returns `Err(())` when `data.len()` does not equal [`Self::LEN`] or
     /// when the bytes are not a valid bit pattern for `Self`.
-    #[allow(clippy::result_unit_err)]
+    #[allow(
+        clippy::result_unit_err,
+        reason = "a failed layout check carries no data; the `read_from`/`read_from_mut` wrappers map it to a ProgramError"
+    )]
     fn cast_mut(data: &mut [u8]) -> Result<&mut Self, ()> {
         if data.len() != Self::LEN {
             return Err(());

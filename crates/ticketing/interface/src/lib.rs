@@ -22,8 +22,8 @@ pub mod args;
 /// Codama IDL-only scaffolding (mirror types + PDA definitions) read only by
 /// the IDL generator; never instantiated at runtime.
 mod idl;
-/// The ticketing program's instruction set: codama IDL source and wire
-/// decoding.
+/// The ticketing program's instruction set: the `TicketingInstruction` enum
+/// (codama IDL source) and its wire discriminator constants.
 pub mod instruction;
 /// Pinocchio program-side helpers: account validation, instruction-arg
 /// parsing, and PDA-backed state abstractions.

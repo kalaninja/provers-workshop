@@ -53,8 +53,8 @@ pub enum EventStatus {
 /// `_reserved: Reserved<4>` is an alignment pad: the preceding fields sum
 /// to 148 bytes, and the struct's alignment of 8 (inherited from `u64`
 /// fields) rounds the size up to 152. Schema evolution happens through
-/// `AccountHeader::VERSION` bumps, so the slot also acts as a forward-
-/// compat reserve when a future schema version uses it for real fields.
+/// `AccountHeader::VERSION` bumps, so this reserved region also doubles as
+/// forward-compat space a future schema version can claim for real fields.
 #[repr(C)]
 #[derive(Clone, Copy, NoUninit, CheckedBitPattern, CodamaAccount, StateAccount, PartialEq, Eq)]
 #[codama(discriminator(bytes = [84, 75, 84, 69, 86, 78, 84, 1], offset = 0))]

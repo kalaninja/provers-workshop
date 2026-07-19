@@ -335,7 +335,7 @@
             },
             {
               "docs": [
-                "Fixed-capacity UTF-8 storage."
+                "Fixed-capacity byte storage (not validated as UTF-8)."
               ],
               "kind": "structFieldTypeNode",
               "name": "bytes",

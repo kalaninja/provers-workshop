@@ -33,7 +33,7 @@ use ticketing_macros::CodamaType;
 struct EventName {
     /// Number of significant bytes in `bytes`.
     len: u16,
-    /// Fixed-capacity UTF-8 storage.
+    /// Fixed-capacity byte storage (not validated as UTF-8).
     #[codama(type = fixed_size(bytes, 64))]
     bytes: [u8; 64],
 }

@@ -308,7 +308,7 @@ Requires set event/buyer addresses (Creusot's `is_set` preconditions); succeeds 
 organizer authorization + open sales + headroom; preserves the invariant; only `sold` changes
 (every other modeled field is pinned) and it grows by exactly the ticket's clamped quantity
 `min(requested, capacity - sold)` (positive); the ticket carries its invariant (event and buyer
-set — Creusot's `is_initial` includes it), pins the event/buyer/payment/bump/slots, and is
+set - Creusot's `is_initial` includes it), pins the event/buyer/payment/bump/slots, and is
 consistent with the updated event (`quantity <= sold'`); the payment is exactly
 `quantity * price`, positive, with no overflow; on error the event is unchanged. -/
 theorem purchase_spec (event : Ev) (organizer event_addr buyer : Addr) (requested : NZU64)

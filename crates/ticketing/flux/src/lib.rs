@@ -1,9 +1,9 @@
 //! Pinocchio ticketing program (Flux lane): trusted imperative shells +
 //! refinement-typed decision cores.
 //!
-//! Behavior-identical to
-//! `ticketing-creusot`/`ticketing-kani`/`ticketing-verus`; only the spec layer
-//! differs. The crate is split along the verification boundary:
+//! Behavior-identical to the `ticketing-creusot` reference (as in every prover
+//! lane); only the spec layer differs. The crate is split along the
+//! verification boundary:
 //!
 //! - [`mod@instructions`] - the trusted imperative shells: account parsing, PDA
 //!   creation, clock reads, CPIs, persistence. Everything that touches the
