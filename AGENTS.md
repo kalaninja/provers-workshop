@@ -4,8 +4,8 @@
 
 - `README.md` for the project overview, command table, and how the pieces fit
 - `docs/provers.md` for the prover roadmap index: roster, order, statuses, comparison, per-lane
-  summaries; full lane reports are `docs/<prover>.md` (`creusot.md`, `kani.md`), the dated
-  chronology is `docs/status-log.md`
+  summaries; full lane reports are `docs/<prover>.md`, one per wired lane (`creusot.md`,
+  `kani.md`, `verus.md`, `flux.md`, `aeneas.md`, `hax.md`, `verifast.md`)
 - For Solana-specific work, load the vendored `solana-dev` skill from `.agents/skills/solana-dev/`
 
 ## Repo Layout
@@ -21,8 +21,9 @@
   stand-ins
 - `idl/ticketing.json` - committed codama IDL, regenerated via `just solana gen-idl`
 - `clients/` - codama-js codegen harness (runs in the node tooling image)
-- `verif/` - proof projects and committed Creusot sessions; hax keeps only its Lake project here
-  and regenerates the ignored Lean extraction on every verification run
+- `verif/` - proof projects: the committed Creusot sessions, the committed Aeneas Lean model and
+  hand-written proofs, and hax's Lake project (its Lean extraction is regenerated on every
+  verification run and stays git-ignored)
 
 ## Source Of Truth
 

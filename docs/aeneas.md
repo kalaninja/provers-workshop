@@ -1,14 +1,15 @@
 # Aeneas lane
 
+Lane 5 of [the prover roadmap](provers.md). Status: **wired up**. Facts are
+point-in-time; last reviewed 2026-07-19.
+
 [Aeneas](https://github.com/AeneasVerif/aeneas) verifies Rust by *translation*:
 [Charon](https://github.com/AeneasVerif/charon) extracts the crate to an LLBC
 model, Aeneas translates that to a pure functional model in Lean 4, and the
 contracts are hand-written Lean proved against the [Aeneas Lean
 library](https://github.com/AeneasVerif/aeneas/tree/main/backends/lean) (over
 mathlib). It is the first *interactive* prover in the roadmap and the only lane
-whose specifications live entirely outside the Rust source. See
-[provers.md](provers.md) for where it sits in the comparison; this is the full
-lane report.
+whose specifications live entirely outside the Rust source.
 
 ## What is wired
 
@@ -42,9 +43,9 @@ passes against it (`just solana test-client-rust ticketing aeneas`).
 ## What is proved
 
 The pure decision cores run on `u64` and enums that Aeneas models precisely, so
-the arithmetic Flux had to *trust* is *proved* here. All six cores carry
-machine-checked Lean contracts (`⦃ ⦄` total-correctness triples), mirroring the
-Creusot reference lane's coverage:
+the arithmetic Flux had to *trust* is *proved* here. The three flow cores and
+the three domain ops all carry machine-checked Lean contracts (`⦃ ⦄`
+total-correctness triples), mirroring the Creusot reference lane's coverage:
 
 - **`payment_for`** - `payment = quantity * price`, **positive** (the explicit
   conjunct standing in for the `NonZeroU64` return type Creusot carries) and

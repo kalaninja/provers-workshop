@@ -6,9 +6,8 @@ The fixed target and the ground it stands on are described in the
 [README](../README.md); this file tracks the variable part. It is the index:
 roster, ground rules, the running comparison, and a short summary per lane -
 each wired lane gets a full report of its own next to this file
-([creusot](creusot.md), [kani](kani.md), [Verus](verus.md), [Flux](flux.md),
-[Aeneas](aeneas.md), [hax](hax.md), [VeriFast](verifast.md)), and the dated
-chronology lives in [status-log.md](status-log.md).
+([Creusot](creusot.md), [Kani](kani.md), [Verus](verus.md), [Flux](flux.md),
+[Aeneas](aeneas.md), [hax](hax.md), [VeriFast](verifast.md)).
 
 Repository-derived statuses were audited on **2026-07-19**. External tool facts
 remain point-in-time observations; re-verify releases, upstream activity, and
@@ -23,7 +22,7 @@ open blockers before starting or revisiting a lane.
 | 3 | [Verus](https://github.com/verus-lang/verus) | SMT over a verification dialect of Rust | wired up - [report](verus.md) |
 | 4 | [Flux](https://github.com/flux-rs/flux) | refinement (liquid) types | wired up - [report](flux.md) |
 | 5 | [Aeneas](https://github.com/AeneasVerif/aeneas) | functional translation to Lean, interactive proofs | wired up - [report](aeneas.md) |
-| 6 | [hax](https://github.com/cryspen/hax) | translation to F* / Rocq / Lean | wired up (6/6 cores) - [report](hax.md) |
+| 6 | [hax](https://github.com/cryspen/hax) | translation to F* / Rocq / Lean | wired up - [report](hax.md) |
 | 7 | [VeriFast](https://github.com/verifast/verifast) | separation logic | wired up (program + detached model) - [report](verifast.md) |
 | 8 | [Prusti](https://github.com/viperproject/prusti-dev) | deductive, Viper backend | blocked - edition 2024 / resolver 3 unsupported |
 
@@ -55,6 +54,14 @@ Distilled from the Creusot lane; this is the template a new prover copies.
   the tool genuinely cannot state it, and every such omission is recorded in
   the lane report (`docs/<prover>.md`) as an honest tool-limit cost - never
   silently.
+- The cores keep the reference lane's honest fallible shape: a provably-dead
+  `Err` branch is not traded for an `expect`/`unreachable!` just to make the
+  function total (tried for `payment_for` across Creusot/Kani/Verus - it proved
+  everywhere - and reverted, because the total body must *witness* the dead
+  branch in the shipping code). Totality is the idiom only where a lane's
+  economics dictate it: Flux cannot refine the `Result` discriminant from a
+  downstream crate, and `?` drags `Try`/`ControlFlow` scaffolding into the
+  extracted Lean models of the translation lanes.
 - If a lane introduces a custom cfg, register it in the root `Cargo.toml`
   `unexpected_cfgs` check-cfg list.
 - Keep the interface crate verifier-free. Put verifier-only dependencies behind
@@ -95,14 +102,17 @@ running a tool for a while:
    (named real-world adopters live in the *Notable use cases* table below, not
    here).
 
-Columns fill in as lanes land.
+Columns fill in as lanes land. Counting convention: *the cores* are the three
+flow decision cores (`create_event`, `ticket_buy`'s `purchase`, `close_event`);
+`payment_for`, `record_sale`, and `close_sales` are the domain ops backing
+them, counted separately - every wired lane proves both sets.
 
 | Axis | Creusot | Kani | Verus | Flux | Aeneas | hax | VeriFast | Prusti |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Trusted surface | `instructions/` shells; `ax_*` axioms + opaque `int`/`is_set` for `NonZeroU64`/`Address` | shell interiors after the verified byte front; no foreign-type axioms | `instructions/` shells; opaque `Address`/`is_set`; two trusted `NonZero` wrappers; foreign-type registrations | largest wired surface: opaque wire types, trusted accessors/setters/constructors, `NonZero` bridges, and three arithmetic helpers | external Lean model with trusted glue specs; nonlinear arithmetic is proved | committed foreign-type model + concrete `lean::replace` glue mappings; `nzVal_pos`, `nzVal_nzMk`, and `nzVal_nzMk_of_pos` are proved. Trust rests on model/mapping fidelity, not accessor or `NonZero` axioms | `instructions/` shells plus a detached model with one `assume_correct` checked-multiply axiom; model-to-program fidelity is trusted | - |
 | Contract legibility | `requires`/`ensures` attributes + pearlite (`@`, `*x`/`^x`, `Int`) | function contracts on the fns (`#[cfg_attr(kani, kani::requires/ensures)]`, `-Z function-contracts`) checked by `#[kani::proof_for_contract]`; `old(*e)`/`*e` for pre/post - close to Creusot's clauses | inline `requires`/`ensures` in `verus!{}` (specs and code in one dialect); `*old(x)`/`*final(x)` for pre/post, vstd's `@` views for `NonZero`, frame conditions as functional-update struct `==` - the closest match to Creusot's pearlite | refined-type signatures (`#[flux_rs::sig(...)]`) with the event invariant on the `Event` type (`#[flux_rs::invariant]`), so it is never threaded through a `requires`; `&mut Event[@e] ... ensures event: Event{new: ..}` for pre/post frames; the `Ok` payload is refined (`Result<Event{v: ..}, _>`) since the `Result` discriminant is not refinable from a downstream crate here | hand-written Lean 4 over the Charon/Aeneas-generated model, in a *separate file* (`TicketingAeneasProofs.lean`) - the farthest from Creusot's inline pearlite. `⦃ ⦄` total-correctness triples proved with `step`/`scalar_tac`/`simp_all`; `&mut Event` renders as a backward function returning `(.., Event)`, `?` as a `Result`-branch, so pre/post frames are stated over logical projections of the opaque `Event` | inline Rust attributes, but embedded Lean Hoare triples (`#[hax_lib::lean::after("theorem ⦃ ⦄ … := by hax_mvcgen …")]`, the `barrett`/`adc` idiom) rather than `requires`/`ensures` - the `Spec` path's `pureEnsures` rejects a `Result`-match postcondition. `&mut Event` lowers to a `RustM` tuple return with `future(event)` for the post-state; frames read the modeled `Event` structure fields directly | inline `//@ req`/`//@ ens` between signature and body; predicates as `fix` fixpoints (Creusot's `#[logic]` analog); `&mut Event` rendered as value-threading (the core returns the updated event, like the Aeneas/hax backward functions); reads close to Creusot's clauses | - |
-| Completeness | full deductive proof; the nonlinear `capacity*price <= u64::MAX` closes with no in-code hint (Why3 + the alt-ergo/z3/cvc5 ensemble handle it) | bounded model check; the cores are loop-free (no unwinding bounds) but `capacity` bounded to `u8` to keep the nonlinear `capacity*price` tractable; `kani::cover!` guards the bounded domain against vacuous passes; the dispatcher harness bounds its parser loops with `#[kani::unwind]` | full SMT proof, unbounded - the nonlinear `capacity*price <= u64::MAX` is discharged with one `assert ... by (nonlinear_arith)` - unbounded like Creusot, but Creusot's solver ensemble needed no in-code hint where Verus's single Z3 does - and no `u8` capacity cap (unlike Kani); dispatcher byte front deferred | SMT + inference, unbounded (no `u8` cap): the invariant, no-oversell, frames, legal status steps, and the exact payment product (`p == q * price`, stated in the signature) are checked; the nonlinear `capacity*price <= u64::MAX` fit and the payment positivity ride *trusted* lemmas (`mul_le_mono`/`mul_pos`), not proved, since flux-core's specs are absent here - a notch below Verus. Dropped (tool limits, recorded in the lane report): exact clamp value, `Ok<=>cond`, on-error-unchanged; overflow-checker not enabled | interactive Lean proof, unbounded (no `u8` cap). All 6 cores proved at the Creusot lane's coverage: invariant/no-oversell, full frames over every modeled field (name/slots/bump included), the exact clamp `min(requested, capacity - sold)` and exact `sold` delta, legal status step, on-error-unchanged with exact error discriminants, the end-to-end `purchase` composition (the full `is_initial` analog: ticket invariant under `is_set` preconditions + exact, positive economics), and - unlike Flux - the nonlinear `capacity*price <= u64::MAX` (mathlib monotonicity) **and** `create_event`'s `Ok<=>overflow` discriminant (modeled `checked_mul`) with the invariant's base case | translation + `mvcgen`/`grind`, unbounded (no `u8` cap). All 6 cores proved at ~Creusot coverage: invariant/no-oversell, full frames, legal status step, on-error-unchanged with exact discriminants, the **proved** nonlinear `capacity*price <= u64::MAX`, `create_event`'s `Ok<=>overflow` (reformulated with integer division, since `checked_mul` is unmodeled), and the end-to-end `purchase` composition - reusing the leaf `record_sale`/`payment_for` triples as `mvcgen` step specs (`attribute [spec]` + a `-record_sale`/`-payment_for` unfold-erase), so the nonlinear bound stays inside the leaf proofs. One cost (lane report): `record_sale`'s clamp - and hence `purchase`'s - proved as `<=` bounds not the exact `min` (as Flux drops) | full deductive proof (symbolic execution + Redux), unbounded (no `u8` cap). All three cores at Creusot coverage: invariant/no-oversell, exact clamp `min(requested, capacity - sold)` and exact `sold` delta, `payment == quantity*price`, ticket `is_initial`/`is_consistent_with`, legal status step + frames, on-error-unchanged, and `create_event`'s `Ok<=>overflow`. The nonlinear `capacity*price <= u64::MAX` and payment positivity are proved by hand (two `mul_mono_l` steps), so `purchase` needs no overflow branch. Nothing dropped | - |
-| Proof / replay speed | not consistently benchmarked; deterministic replay is available | ~310s wall-clock from scratch (`-j` parallel harnesses; bounded by the dispatcher's ~300s, `purchase` ~210s, others 32-54s); no replay | fast (`11 verified` in seconds of solver time); re-verifies from scratch, no replay | ~0.2s from scratch (`8 checked`, 58 constraints); no replay | `verify` takes minutes because Charon rebuilds a MIR-linkable sysroot; replay checks committed Lean in seconds | extraction + Lean check from scratch each run; no replay | `143 statements verified` in seconds; no replay | - |
+| Completeness | full deductive proof; the nonlinear `capacity*price <= u64::MAX` closes with no in-code hint (Why3 + the alt-ergo/z3/cvc5 ensemble handle it) | bounded model check; the cores are loop-free (no unwinding bounds) but `capacity` bounded to `u8` to keep the nonlinear `capacity*price` tractable; `kani::cover!` guards the bounded domain against vacuous passes; the dispatcher harness bounds its parser loops with `#[kani::unwind]` | full SMT proof, unbounded - the nonlinear `capacity*price <= u64::MAX` is discharged with one `assert ... by (nonlinear_arith)` - unbounded like Creusot, but Creusot's solver ensemble needed no in-code hint where Verus's single Z3 does - and no `u8` capacity cap (unlike Kani); dispatcher byte front deferred | SMT + inference, unbounded (no `u8` cap): the invariant, no-oversell, frames, legal status steps, and the exact payment product (`p == q * price`, stated in the signature) are checked; the nonlinear `capacity*price <= u64::MAX` fit and the payment positivity ride *trusted* lemmas (`mul_le_mono`/`mul_pos`), not proved, since flux-core's specs are absent here - a notch below Verus. Dropped (tool limits, recorded in the lane report): exact clamp value, `Ok<=>cond`, on-error-unchanged; overflow-checker not enabled | interactive Lean proof, unbounded (no `u8` cap). All three cores and the three domain ops proved at the Creusot lane's coverage: invariant/no-oversell, full frames over every modeled field (name/slots/bump included), the exact clamp `min(requested, capacity - sold)` and exact `sold` delta, legal status step, on-error-unchanged with exact error discriminants, the end-to-end `purchase` composition (the full `is_initial` analog: ticket invariant under `is_set` preconditions + exact, positive economics), and - unlike Flux - the nonlinear `capacity*price <= u64::MAX` (mathlib monotonicity) **and** `create_event`'s `Ok<=>overflow` discriminant (modeled `checked_mul`) with the invariant's base case | translation + `mvcgen`/`grind`, unbounded (no `u8` cap). All three cores and the three domain ops proved at ~Creusot coverage: invariant/no-oversell, full frames, legal status step, on-error-unchanged with exact discriminants, the **proved** nonlinear `capacity*price <= u64::MAX`, `create_event`'s `Ok<=>overflow` (reformulated with integer division, since `checked_mul` is unmodeled), and the end-to-end `purchase` composition - reusing the leaf `record_sale`/`payment_for` triples as `mvcgen` step specs (`attribute [spec]` + a `-record_sale`/`-payment_for` unfold-erase), so the nonlinear bound stays inside the leaf proofs. One cost (lane report): `record_sale`'s clamp - and hence `purchase`'s - proved as `<=` bounds not the exact `min` (as Flux drops) | full deductive proof (symbolic execution + Redux), unbounded (no `u8` cap). All three cores at Creusot coverage: invariant/no-oversell, exact clamp `min(requested, capacity - sold)` and exact `sold` delta, `payment == quantity*price`, ticket `is_initial`/`is_consistent_with`, legal status step + frames, on-error-unchanged, and `create_event`'s `Ok<=>overflow`. The nonlinear `capacity*price <= u64::MAX` and payment positivity are proved by hand (two `mul_mono_l` steps), so `purchase` needs no overflow branch. Nothing dropped | - |
+| Proof / replay speed | `Proved (23 files)` in ~12s from scratch (cold `why3find` cache; the alt-ergo/z3/cvc5 ensemble), committed-session `replay` ~9s (the pre-push gate) | ~310s wall-clock from scratch (`-j` parallel harnesses; bounded by the dispatcher's ~300s, `purchase` ~210s, others 32-54s); no replay | fast (`11 verified` in seconds of solver time); re-verifies from scratch, no replay | ~0.2s from scratch (`8 checked`, 58 constraints); no replay | `verify` takes minutes because Charon rebuilds a MIR-linkable sysroot; replay checks committed Lean in seconds | extraction + Lean check from scratch each run; no replay | `143 statements verified` in seconds; no replay | - |
 | Artifact story | 23 `proof.json` sessions under `verif/`, deterministic replay in pre-push | none committed - re-verifies from scratch every run | none committed - re-verifies from scratch | none committed - re-verifies from inline specs | committed generated Lean model + hand-written proofs, deterministically re-checked by `just aeneas replay` | generated Lean is ignored and rebuilt; committed artifacts are inline `lean::after` proofs plus `model_preamble.lean` | none committed - re-verifies inline `//@` contracts from source | - |
 | Code bending | none in core bodies; extension-trait plumbing for foreign impls | plain std operations plus hand-written predicate traits | low: `verus!{}` cores, two trusted wrappers, one nonlinear proof hint, verifier-only feature plumbing | moderate-high: opaque wire types, accessor layer, `u64` accounting, and some dropped functional clauses | ordinary extracted Rust; complexity moves into Charon configuration and separate Lean glue specs | extraction-first control flow, inline Lean triples, and a division-form overflow gate preserving the checked-multiply decision | shipping program stays plain; all bending is in the detached, value-threaded model | - |
 | Toolchain fit | own nightly (2026-04-21) + opam-built Why3/solvers; the heaviest image | self-contained bundle: kani-verifier 0.67.0 (mise cargo backend) + CBMC/kissat via `cargo kani setup`; light image | release bundle (verus `0.2026.07.12` stable `release/` tag + bundled Z3 4.12.5, mise github backend) over a pinned stable 1.96.0 rustup toolchain; needs glibc >= 2.39 so its base is trixie not the shared bookworm; `vstd` pinned from crates.io (`2026-07-12`) | built from source (`cargo xtask install`) at a pinned git rev - no release/crate/rustup component; pins but does not ship nightly-2025-11-25 (rustc-dev/rust-src/llvm-tools via rustup); Z3 4.16 (glibc-2.39) + liquid-fixpoint (floating `nightly` tag) pinned via mise github backends, so its base is trixie like Verus | the heaviest lane: opam-built Charon+Aeneas (pinned commits, Charon via Aeneas's `charon-pin`) + a Lean `v4.31.0`/elan toolchain + the mathlib tree (prebuilt cache, not compiled). Stays on bookworm. Not hermetic through `lake` (re-clones mathlib), so checked via `lean` + `LEAN_PATH` against the baked oleans; the cdylib forces `charon --sysroot default` | `cargo-hax`/`hax-driver`/`hax-rust-engine` `0.3.7` (mise cargo backend) over `nightly-2025-11-08` + elan `4.2.3`/Lean `v4.29.0-rc1`; the hax Lean library prebuilt from commit `d8b5b3d`. At `0.3.7` the Lean backend delegates THIR import to a native OCaml helper (opam-built in isolation, binary only), so the image is Aeneas-class. Stays on bookworm; checked via `lean` (not `lake`) against baked oleans | prebuilt release bundle (VeriFast `26.01` via the mise github backend: the `bin/verifast` CLI + built-in Redux) over the pinned `nightly-2025-11-25` (rustc-dev/rust-src/llvm-tools, the same nightly as Flux); stays on the shared bookworm base; light image, no from-source build | blocked before compilation: the 2023 release bundle uses Rust/Cargo 1.73 and rejects this workspace's resolver 3 manifest |
@@ -197,9 +207,13 @@ backend:
 
 [Creusot](https://github.com/creusot-rs/creusot) translates Rust carrying
 pearlite contracts into Why3; `why3find` discharges the verification
-conditions with SMT solvers. The baseline lane: contracts on the flow cores
-and domain ops, trusted axioms for the foreign types, 23 committed proof
-sessions under `verif/` with deterministic replay in the pre-push hook.
+conditions with SMT solvers.
+
+Why first: the reference lane the workshop grew around. Its contracts define
+the spec-coverage floor every later lane is measured against, so it sets the
+template (the ground rules above) rather than following it: contracts on the
+flow cores and domain ops, trusted axioms for the foreign types, 23 committed
+proof sessions under `verif/` with deterministic replay in the pre-push hook.
 
 Full report: [creusot.md](creusot.md).
 
@@ -208,7 +222,12 @@ Full report: [creusot.md](creusot.md).
 [Kani](https://github.com/model-checking/kani) (AWS) bit-blasts MIR through
 CBMC - the paradigm inverts: the SAT solver hunts for one violating execution
 within bounds instead of proving conformance for all inputs, and verification
-covers exactly what the harnesses reach. Four harnesses (three flow-core
+covers exactly what the harnesses reach.
+
+Why second: the cheapest integration on the roster - a self-contained cargo
+plugin over the stable toolchain, no toolchain surgery - and the first
+paradigm shift away from the deductive baseline, so it filled the comparison
+table's second column fastest. Four harnesses (three flow-core
 contracts plus the dispatcher byte front, all `kani::cover!`-guarded) pass in
 ~310s wall-clock (`-j`); nothing to commit - every run re-verifies from
 scratch. Headline lessons: nonlinear `capacity*price` forced a `u8` capacity
@@ -359,13 +378,14 @@ The full lane is wired: a `ticketing-aeneas` program crate (a port of the
 Creusot reference program, written extraction-first - explicit `if`/`match`, no
 `?` in the extracted cores) implements the shared wire protocol and decisions
 (the generated client's shared 7-test Mollusk suite passes), Charon extracts
-its `flows/` + `domain/` cores to Lean, and hand-written
-proofs verify all six cores at the Creusot lane's spec coverage. The headline
-result: the pure logic runs on `u64`, so the arithmetic Flux had to *trust* is
-*proved* here - `payment_for`'s `payment = quantity * price`, positive, with no
-overflow (the nonlinear `capacity*price <= u64::MAX` closed by mathlib
-monotonicity, where Flux trusts a `mul_le_mono` lemma), plus `create_event`'s
-exact `Ok<=>overflow` discriminant that Flux drops. `record_sale` (no
+its `flows/` + `domain/` cores to Lean, and hand-written proofs verify the
+three cores and the three domain ops at the Creusot lane's spec coverage. The
+headline result: the pure logic runs on `u64`, so the arithmetic Flux had to
+*trust* is *proved* here - `payment_for`'s `payment = quantity * price`,
+positive, with no overflow (the nonlinear `capacity*price <= u64::MAX` closed
+by mathlib monotonicity, where Flux trusts a `mul_le_mono` lemma), plus
+`create_event`'s exact `Ok<=>overflow` discriminant that Flux drops.
+`record_sale` (no
 overselling, full frames, the exact clamp `min(requested, capacity - sold)` and
 `sold` delta, on-error-unchanged), `close_sales`/`close_event` (status step,
 organizer auth), and the end-to-end `purchase` composition (under `is_set`
@@ -400,7 +420,7 @@ template, deeper than any prior lane's:
   bookworm (Lean/elan and the rustup nightly support glibc 2.36, unlike
   Verus/Flux).
 
-### 6. hax - wired up (6/6 cores)
+### 6. hax - wired up
 
 [hax](https://github.com/cryspen/hax) (Cryspen) translates a large subset of
 Rust into F*, Rocq or Lean. In this lane the contracts live inline as embedded
@@ -418,10 +438,10 @@ of semantic gaps in the hax pipeline - a live case study in what the
 The lane is wired: `ticketing-hax` is the full Pinocchio program (trusted
 `instructions/` shells + `entrypoint!` + `cdylib`, `flows/`/`domain/` cores),
 implementing the shared wire protocol and decisions and passing the generated
-client's shared 7-test Mollusk suite. All six decision
-cores - `payment_for`, `create_event`, `record_sale`, `close_sales`,
-`close_event`, and the end-to-end `ticket_buy`/`purchase` composition - are proved
-in Lean; `purchase` composes by reusing the leaf cores' triples as `mvcgen` step
+client's shared 7-test Mollusk suite. All three cores and all three domain
+ops - `create_event`, the end-to-end `ticket_buy`/`purchase` composition,
+`close_event`, plus `payment_for`, `record_sale`, `close_sales` - are proved
+in Lean; `purchase` composes by reusing the leaf triples as `mvcgen` step
 specs. Full report: [hax.md](hax.md).
 
 - `cargo-hax`, `hax-driver`, and `hax-rust-engine` are pinned together at
@@ -466,6 +486,11 @@ specs. Full report: [hax.md](hax.md).
 verifier; in the std campaign it handles the most pointer-intensive unsafe
 modules, and it supports concurrent code. Full report:
 [verifast.md](verifast.md).
+
+Why last of the wired lanes: the ordering paragraph flagged it as a fit risk -
+its separation-logic sweet spot might not be this repo's heap-free verified
+layer at all - so the lane ran once the roster's cheaper answers were in, to
+settle exactly that question.
 
 The target-fit question is resolved in favor of parity: the lane ships a real
 Pinocchio program over `ticketing-interface` (implementing the shared wire

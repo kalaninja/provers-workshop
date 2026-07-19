@@ -2,7 +2,7 @@
 
 Lane 1 of [the prover roadmap](provers.md) - the baseline every later lane
 is compared against. Status: **wired up**. Facts are point-in-time; last
-reviewed 2026-07-12.
+reviewed 2026-07-19.
 
 [Creusot](https://github.com/creusot-rs/creusot) translates Rust carrying
 pearlite contracts into Why3; `why3find` discharges the verification
@@ -17,6 +17,30 @@ Contracts on the flow cores and domain ops
 sessions under `verif/`, `just creusot verify / replay / verify-ide`, and the
 pre-push replay gate. The full walkthrough is in the README's "Verified cores"
 section.
+
+## What is proved
+
+The reference coverage every later lane is measured against. The three flow
+cores and the three domain ops carry pearlite contracts discharged as a full
+deductive proof - unbounded, with no in-code proof hints (the alt-ergo/z3/cvc5
+ensemble closes every goal, including the nonlinear one):
+
+- **`payment_for`** - `payment = quantity * price` with no overflow, returned
+  as `NonZeroU64` (positivity by type); the nonlinear `quantity * price <=
+  capacity * price <= u64::MAX` step closes inside the solvers, hint-free.
+- **`create_event`** - `Ok` yields a fresh event satisfying `is_initial`;
+  `Err` only when `capacity * price` overflows `u64`.
+- **`record_sale`** - preserves the invariant (`sold <= capacity` - no
+  overselling), changes only `sold`, grows it by the exact positive clamp
+  `min(requested, capacity - sold)`, and on error leaves the event unchanged.
+- **`close_sales`** / **`close_event`** - the legal `open -> closed` status
+  step (`is_legal_transition_from`), organizer authentication (`close_event`),
+  full frames, and on-error-unchanged.
+- **`purchase`** (ticket_buy) - the end-to-end composition: invariant and
+  legal transition preserved, only `sold` changes and grows by exactly the
+  ticket's clamped quantity, the ticket satisfies `is_initial` and
+  `is_consistent_with` the updated event, the payment is the exact product
+  `quantity * price`, and on error the event is unchanged.
 
 ## Lessons that set the baseline
 

@@ -41,20 +41,20 @@ identical contracts.
 | 3 | [Verus](https://github.com/verus-lang/verus) | SMT over a verification dialect of Rust | wired up |
 | 4 | [Flux](https://github.com/flux-rs/flux) | refinement (liquid) types | wired up |
 | 5 | [Aeneas](https://github.com/AeneasVerif/aeneas) | functional translation to Lean | wired up |
-| 6 | [hax](https://github.com/cryspen/hax) | translation to F* / Rocq / Lean | wired up - all 6 cores proved in Lean |
+| 6 | [hax](https://github.com/cryspen/hax) | translation to F* / Rocq / Lean | wired up |
 | 7 | [VeriFast](https://github.com/verifast/verifast) | separation logic | wired up - program + detached model |
 | 8 | [Prusti](https://github.com/viperproject/prusti-dev) | deductive, Viper backend | blocked - edition 2024 / resolver 3 unsupported |
 
 All seven implemented lanes build a real program over the same wire protocol;
 the shared seven-test client suite exercises their instruction encoding and SBF
-lifecycle. The hax-to-Lean lane proves all six cores (the `ticket_buy`
-composition reuses the leaf cores' proved contracts as `mvcgen` specs). The
-VeriFast lane cannot verify the shipping cores directly because its Rust
-frontend cannot ingest the `ticketing-interface` dependency graph; it proves a
-detached model intended to reproduce the three cores' decision semantics. The
-model-to-program correspondence remains part of that lane's trusted surface.
-The ordering rationale, integration ground rules, and running comparison live
-in the roadmap index [docs/provers.md](docs/provers.md); each
+lifecycle. Every wired lane proves the three decision cores and their domain
+ops at the Creusot reference coverage, recording any tool-limit gap in its lane
+report. The VeriFast lane cannot verify the shipping cores directly because its
+Rust frontend cannot ingest the `ticketing-interface` dependency graph; it
+proves a detached model intended to reproduce the three cores' decision
+semantics, and the model-to-program correspondence remains part of that lane's
+trusted surface. The ordering rationale, integration ground rules, and running
+comparison live in the roadmap index [docs/provers.md](docs/provers.md); each
 wired lane has a full report next to it ([docs/creusot.md](docs/creusot.md),
 [docs/kani.md](docs/kani.md), [docs/verus.md](docs/verus.md),
 [docs/flux.md](docs/flux.md), [docs/aeneas.md](docs/aeneas.md),
@@ -159,7 +159,6 @@ verif/                      proof projects/sessions (hax extraction is generated
 why3find.json               prover configuration (alt-ergo, z3, cvc5 + tactics)
 docs/provers.md             prover roadmap index: roster, order, running comparison, summaries
 docs/<prover>.md            full per-lane reports (one per wired lane)
-docs/status-log.md          dated chronology of the workshop
 ```
 
 ## How the pieces fit
@@ -222,10 +221,10 @@ program reads or writes:
 
 All specification attributes are `cfg(creusot)`-gated, so they and the
 verifier-only dependency are absent from normal and SBF target artifacts.
-`cargo creusot prove` (in the creusot image) translates the crate to Why3, discharges every
-verification condition with SMT solvers, and records one `proof.json` per VC
-under `verif/`; `just creusot replay` re-checks those sessions
-deterministically and is wired into the pre-push hook.
+`cargo creusot` (in the creusot image) translates the crate to Why3,
+discharges every verification condition with SMT solvers, and records one
+`proof.json` per VC under `verif/`; `just creusot replay` re-checks those
+sessions deterministically and is wired into the pre-push hook.
 
 This is the layer the workshop swaps. A new prover gets its own program crate
 (`crates/ticketing/<prover>`) over the same `ticketing-interface`, carrying

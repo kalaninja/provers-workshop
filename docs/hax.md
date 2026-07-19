@@ -1,5 +1,8 @@
 # hax lane
 
+Lane 6 of [the prover roadmap](provers.md). Status: **wired up**. Facts are
+point-in-time; last reviewed 2026-07-19.
+
 [hax](https://github.com/cryspen/hax) (Cryspen) verifies Rust by *translation*:
 a rustc driver extracts the crate and the hax engine emits a model in a backend
 prover - here **Lean 4**, against the [hax Lean proof
@@ -8,10 +11,9 @@ library](https://github.com/cryspen/hax/tree/main/hax-lib/proof-libs/lean)
 It shares Aeneas's translate-then-prove quadrant, so the two run head-to-head on
 the same Lean target; the difference is the *pipeline* (hax's Rust engine + the
 `RustM`/`mvcgen` encoding vs Charon/LLBC + the Aeneas Std) and that hax's
-contracts live **inline in the Rust source** as `hax_lib` attributes. See
-[provers.md](provers.md) for where it sits in the comparison; this is the full
-lane report. The F* and Rocq backends are out of scope, keeping the comparison
-with Aeneas on one Lean target.
+contracts live **inline in the Rust source** as `hax_lib` attributes. The F*
+and Rocq backends are out of scope, keeping the comparison with Aeneas on one
+Lean target.
 
 ## What is wired
 
@@ -43,11 +45,11 @@ generated client's shared 7-test Mollusk suite passes against it
 
 ## What is proved
 
-All six decision cores carry machine-checked Lean contracts, written
-inline as `#[hax_lib::lean::after("theorem … := by …")]` Hoare triples (`⦃ ⦄`,
-the idiom the upstream `barrett`/`adc` examples use for rich postconditions) and
-proved with `hax_mvcgen` + `grind`/`omega` over the glue models. Coverage
-mirrors the Creusot reference lane except where noted:
+The three flow cores and the three domain ops all carry machine-checked Lean
+contracts, written inline as `#[hax_lib::lean::after("theorem … := by …")]`
+Hoare triples (`⦃ ⦄`, the idiom the upstream `barrett`/`adc` examples use for
+rich postconditions) and proved with `hax_mvcgen` + `grind`/`omega` over the
+glue models. Coverage mirrors the Creusot reference lane except where noted:
 
 - **`payment_for`** - `payment = quantity * price`, **positive** and with **no
   overflow**, for positive `quantity <= capacity`. The nonlinear `quantity *
@@ -91,7 +93,7 @@ directly over the mutated event (no value-passing fallback was needed).
 
 ### Composing `purchase`
 
-`purchase` (ticket_buy) is the one core that *composes* two proved cores
+`purchase` (ticket_buy) is the one core that *composes* two proved domain ops
 (`record_sale` then `payment_for`) rather than reasoning locally, and hax `0.3.7`
 does not wire that composition up automatically: the `Spec`-structure form
 `mvcgen` would use modularly is generated from `requires`/`ensures`, but that
