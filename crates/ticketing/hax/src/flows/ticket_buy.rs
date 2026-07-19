@@ -19,24 +19,27 @@ use crate::domain::{
 
 /// Purchase for a buyer: validate the organizer, record the clamped sale on the
 /// event, price it, and build the buyer's ticket. Returns the payment (for the
-/// shell's transfer CPI) and the freshly-built ticket (for the shell to persist).
+/// shell's transfer CPI) and the freshly-built ticket (for the shell to
+/// persist).
 ///
-/// The contract is the embedded Lean Hoare triple `purchase_spec` below: from the
-/// event invariant and set event/buyer addresses, the invariant is preserved, only
-/// `sold` moves (every other field pinned) and it grows by exactly the ticket's
-/// clamped quantity (positive, bounded by the request and the remaining capacity),
-/// the ticket carries its invariant and pins the buyer/event/payment/bump/slots,
-/// the payment is `quantity * price` (positive, no overflow), and on error the event
-/// is unchanged. Mirrors the Creusot lane's `purchase` coverage.
+/// The contract is the embedded Lean Hoare triple `purchase_spec` below: from
+/// the event invariant and set event/buyer addresses, the invariant is
+/// preserved, only `sold` moves (every other field pinned) and it grows by
+/// exactly the ticket's clamped quantity (positive, bounded by the request and
+/// the remaining capacity), the ticket carries its invariant and pins the
+/// buyer/event/payment/bump/slots, the payment is `quantity * price` (positive,
+/// no overflow), and on error the event is unchanged. Mirrors the Creusot
+/// lane's `purchase` coverage.
 ///
 /// Unlike the leaf cores, this end-to-end composition reuses the already-proved
-/// `record_sale_spec` and `payment_for_spec` as `mvcgen` step specs - `attribute
-/// [spec]` registers them and the `-record_sale`/`-payment_for` erase suppresses the
-/// backend's default `@[spec]` unfold - so `record_sale`'s clamp and `payment_for`'s
-/// nonlinear no-overflow stay discharged inside their own proofs and never re-enter
-/// this one. That is the modular composition hax `0.3.7` does not wire up on its own
-/// (the `requires`/`ensures` -> `Spec` path is blocked by the `pureEnsures` `Result`
-/// match); registering the hand-written triples as specs is the way through.
+/// `record_sale_spec` and `payment_for_spec` as `mvcgen` step specs -
+/// `attribute [spec]` registers them and the `-record_sale`/`-payment_for`
+/// erase suppresses the backend's default `@[spec]` unfold - so `record_sale`'s
+/// clamp and `payment_for`'s nonlinear no-overflow stay discharged inside their
+/// own proofs and never re-enter this one. That is the modular composition hax
+/// `0.3.7` does not wire up on its own (the `requires`/`ensures` -> `Spec` path
+/// is blocked by the `pureEnsures` `Result` match); registering the
+/// hand-written triples as specs is the way through.
 // `?` would extract through the `Try`/`ControlFlow` traits and bury the Lean
 // model in `branch`/`from_residual` scaffolding; compose the `Result` with an
 // explicit `match` instead (the extraction-first rule shared with the Aeneas
