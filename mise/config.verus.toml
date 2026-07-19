@@ -8,13 +8,15 @@
 rust = { version = "1.96.0", profile = "minimal", components = "rustc-dev,rust-src,llvm-tools" }
 "ubi:verus-lang/verusfmt" = "0.7.2"
 
-# The Verus release bundle: verus + cargo-verus + bundled Z3 + precompiled vstd. Rolling release -
-# the tag lives under `release/rolling/`, hence version_prefix; re-pin to the next stable when it
-# lands. The zip's single root dir is auto-stripped, so the launcher finds its bundled Z3/vstd
-# next to the binaries.
+# The Verus release bundle: verus + cargo-verus + bundled Z3 + precompiled vstd. Verus publishes
+# each nightly at `release/rolling/<ver>` as a prerelease, then retags the previous one to
+# `release/<ver>` (stable) once the next lands - so a `release/rolling/` pin 404s the moment it is
+# superseded. Pin a stable `release/<ver>` tag (hence version_prefix) and bump it deliberately. The
+# zip's single root dir is auto-stripped, so the launcher finds its bundled Z3/vstd next to the
+# binaries.
 [tools."github:verus-lang/verus"]
 version = "0.2026.07.12.0b42f4c"
-version_prefix = "release/rolling/"
+version_prefix = "release/"
 
 [tools."github:verus-lang/verus".platforms]
 linux-x64 = { asset_pattern = "verus-*-x86-linux.zip" }
