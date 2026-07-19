@@ -41,13 +41,13 @@ identical contracts.
 | 3 | [Verus](https://github.com/verus-lang/verus) | SMT over a verification dialect of Rust | wired up |
 | 4 | [Flux](https://github.com/flux-rs/flux) | refinement (liquid) types | wired up |
 | 5 | [Aeneas](https://github.com/AeneasVerif/aeneas) | functional translation to Lean | wired up |
-| 6 | [hax](https://github.com/cryspen/hax) | translation to F* / Rocq / Lean | wired up - 5/6 cores proved in Lean |
+| 6 | [hax](https://github.com/cryspen/hax) | translation to F* / Rocq / Lean | wired up - all 6 cores proved in Lean |
 | 7 | [VeriFast](https://github.com/verifast/verifast) | separation logic | wired up - program + detached model |
 | 8 | [Prusti](https://github.com/viperproject/prusti-dev) | deductive, Viper backend | blocked - edition 2024 / resolver 3 unsupported |
 
 Creusot, Kani, Verus, Flux, Aeneas, and VeriFast are wired up today, and the
-hax-to-Lean lane proves five of its six cores in Lean (the `ticket_buy`
-composition is the one pending proof). The VeriFast lane ships a real program
+hax-to-Lean lane now proves all six of its cores in Lean (the `ticket_buy`
+composition reuses the leaf cores' proved contracts as `mvcgen` specs). The VeriFast lane ships a real program
 like the others, but VeriFast cannot verify its cores directly - its Rust
 frontend cannot ingest the `ticketing-interface` dependency graph - so its proof
 is a detached, behaviorally-identical model of the three cores (see its report). The ordering rationale, integration ground rules, and the running
@@ -141,7 +141,7 @@ just/                       recipe modules (rust, solana, creusot, kani, verus, 
 
 crates/ticketing/interface  wire layer: byte layouts + program-side helpers (shared by all provers)
 crates/ticketing/creusot    the Creusot program crate: trusted shells + verified cores (one crate per prover)
-crates/ticketing/hax        hax-to-Lean lane: inline contracts, 5/6 cores proved in Lean
+crates/ticketing/hax        hax-to-Lean lane: inline contracts, all 6 cores proved in Lean
 crates/ticketing/client     codama-rendered Rust client + handwritten checked decoders
 crates/ticketing/macros     proc-macros: creusot_extension, codegen derives, no-op codama stand-ins
 

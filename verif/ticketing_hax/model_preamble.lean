@@ -41,6 +41,14 @@ theorem nzVal_pos (x : NonZero u64) : 0 < (nzVal x).toNat := by
   simpa [UInt64.lt_iff_toNat_lt] using h
 theorem nzVal_nzMk (v : u64) (h : v ≠ 0) : nzVal (nzMk v) = v := by
   simp [nzVal, nzMk, h]
+/-- `nzVal (nzMk v) = v` keyed on `0 < v.toNat` - the positivity form the `purchase` composition
+    carries for the clamped quantity and the pricing product (from `record_sale`/`payment_for`'s
+    postconditions), so `grind` discharges the `nzMk` round-trips without re-deriving `v ≠ 0`. -/
+theorem nzVal_nzMk_of_pos (v : u64) (h : 0 < v.toNat) : nzVal (nzMk v) = v := by
+  apply nzVal_nzMk
+  intro hv
+  subst hv
+  simp at h
 end core_models.num.nonzero
 
 namespace ticketing_interface.wire.bounded_string

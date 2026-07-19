@@ -3,6 +3,20 @@
 The dated chronology of [the prover roadmap](provers.md): what landed in each
 lane and what it taught, newest first.
 
+- **2026-07-19** - hax reaches 6/6: the `ticket_buy`/`purchase` composition is now
+  proved in Lean, closing the lane's last core. hax `0.3.7` won't auto-compose the
+  per-core contracts - the `requires`/`ensures` -> `Spec` path its `mvcgen` would
+  use is still barred by the `pureEnsures` `Result`-match limitation, and unfolding
+  `record_sale` + `payment_for` inline re-raises the 64-bit nonlinear pricing goal
+  under the `int` spec-set, which defeats `grind`. The fix reuses the hand-written
+  `lean::after` triples as `mvcgen` step specs: `attribute [spec] record_sale_spec
+  payment_for_spec` registers them and `hax_mvcgen [purchase, -record_sale,
+  -payment_for]` erases the backend's default `@[spec]` unfold, so each callee is
+  applied opaquely by its contract and the nonlinear bound stays inside
+  `payment_for_spec`. One `model_preamble.lean` bridge supports it
+  (`nzVal_nzMk_of_pos`, the `nzMk` round-trip keyed on `0 < v.toNat`). `purchase`
+  inherits `record_sale`'s two-`<=`-bound clamp (not the exact `min`), so the one
+  coverage gap versus Creusot/Aeneas is unchanged. Recorded in `docs/hax.md`.
 - **2026-07-17** - tooling Dockerfiles split by responsibility: the root file now owns only the
   shared base plus Rust/Node/Solana stages, while each prover lane has its own file under
   `docker/`. The `just tooling build-*` interface and final image tags are unchanged;

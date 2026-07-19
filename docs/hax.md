@@ -43,7 +43,7 @@ client's Mollusk suite passes against it - the same 7 tests as the other lanes
 
 ## What is proved
 
-Five of the six decision cores carry machine-checked Lean contracts, written
+All six decision cores carry machine-checked Lean contracts, written
 inline as `#[hax_lib::lean::after("theorem … := by …")]` Hoare triples (`⦃ ⦄`,
 the idiom the upstream `barrett`/`adc` examples use for rich postconditions) and
 proved with `hax_mvcgen` + `grind`/`omega` over the glue models. Coverage
@@ -74,26 +74,46 @@ mirrors the Creusot reference lane except where noted:
   `status` (`open -> closed`; every other field pinned), report a legal
   transition, authenticate the organizer (`close_event`), and give the exact
   `Ok <=> organizer & open` / on-error-unchanged discriminant.
+- **`purchase`** (ticket_buy) - the end-to-end buy composition (validate the
+  organizer, `record_sale`, `payment_for`, build the ticket). The event invariant
+  is preserved, only `sold` moves and grows by exactly the clamped quantity, the
+  ticket carries its invariant and pins the buyer/event/payment/bump/slots, and the
+  payment is `quantity * price` (positive, no overflow); on error the event is
+  unchanged. Proved *modularly* by reusing the `record_sale`/`payment_for` triples
+  as `mvcgen` step specs rather than unfolding them (see **Composing `purchase`**
+  below), so its clamp keeps `record_sale`'s two-`<=`-bound form (not the exact
+  `min`).
 
 The `&mut Event` cores keep the sibling lanes' signatures: hax's experimental
 Lean backend lowers `&mut T` into a `(T, …)` tuple return and resolves
 `future(event)` to the post-state, so the frames and transitions are stated
 directly over the mutated event (no value-passing fallback was needed).
 
-### Not yet proved
+### Composing `purchase`
 
-- **`purchase`** (ticket_buy) - the end-to-end composition is extracted, and the
-  contract it should carry is spelled out in its doc comment, but no `lean::after`
-  theorem is attached yet. hax `0.3.7` does not
-  compose the per-core `lean::after` theorems automatically: the `Spec`-structure
-  form `mvcgen` *would* use modularly is generated from `requires`/`ensures`, but
-  that path's `pureEnsures` obligation rejects the `Result` match in every
-  postcondition here ("`hax_construct_pure`: mvcgen generated more than one goal
-  … remove … match-constructs"), which is exactly why the proved cores use
-  hand-written `lean::after` triples instead. A `purchase` proof therefore has to
-  re-derive `record_sale` + `payment_for` inline, and the composed 64-bit
-  nonlinear pricing goal under the `int` spec-set's narrow-integer noise defeats
-  `grind`. This is the one remaining core.
+`purchase` (ticket_buy) is the one core that *composes* two proved cores
+(`record_sale` then `payment_for`) rather than reasoning locally, and hax `0.3.7`
+does not wire that composition up automatically: the `Spec`-structure form
+`mvcgen` would use modularly is generated from `requires`/`ensures`, but that
+path's `pureEnsures` obligation rejects the `Result` match in every postcondition
+here ("`hax_construct_pure`: mvcgen generated more than one goal … remove …
+match-constructs"), which is exactly why the leaf cores use hand-written
+`lean::after` triples. Unfolding `record_sale` + `payment_for` inline instead
+re-raises the composed 64-bit nonlinear pricing goal under the `int` spec-set's
+narrow-integer noise, which defeats `grind`.
+
+The way through is to reuse the hand-written triples themselves as `mvcgen` step
+specs. `record_sale_spec` and `payment_for_spec` are registered with `attribute
+[spec]`, and `purchase`'s proof runs `hax_mvcgen [purchase, -record_sale,
+-payment_for] <;> grind`: the `-record_sale`/`-payment_for` erase suppresses the
+backend's default `@[spec]`-on-the-def unfold, so each callee is applied
+*opaquely* by its contract. The nonlinear `capacity*price` bound then stays
+discharged inside `payment_for_spec` and never re-enters this proof; the only new
+facts `grind` needs are the `nzMk` round-trips on the clamped quantity and the
+price (`model_preamble.lean`'s `nzVal_nzMk_of_pos`, keyed on the `0 < _` the leaf
+postconditions already carry). This is the modular composition that the blocked
+auto-`Spec` path could not give - the same recovery hax's own `chacha20` example
+uses to compose spec'd callees.
 
 ## Trusted surface
 
@@ -137,7 +157,10 @@ status step, and invariant preservation - is proved.
   the `Result` discriminant, which every real postcondition here needs. The
   contracts are still inline Rust attributes, but as embedded Lean Hoare triples
   (`lean::after`) - the same idiom hax's own `barrett`/`adc` examples use, noting
-  auto-generation from `requires`/`ensures` is future work upstream.
+  auto-generation from `requires`/`ensures` is future work upstream. Those
+  hand-written triples can still be **registered as `mvcgen` specs** (`attribute
+  [spec]`) and reused across cores, so `purchase` composes modularly without the
+  blocked auto-`Spec` path (see **Composing `purchase`**).
 - **`checked_mul` unmodeled -> division-form overflow gate** (see `create_event`
   above): behavior-identical, keeps the bound proved.
 - **Committed trusted model, spliced post-extraction.** hax has no cargo-metadata
