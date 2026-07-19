@@ -6,9 +6,9 @@ license.workspace = true
 publish.workspace = true
 
 # `lib` first: hax extracts the rlib and host tests build it; `cdylib` is what `cargo build-sbf`
-# links into the deployable `.so`. Behavior-identical program to the other lanes; the hax spec layer
-# (inline `hax_lib` attributes + inline Lean proofs) is `cfg(hax)`-gated, so ordinary and SBF builds
-# compile the identical program with zero verification overhead.
+# links into the deployable `.so`. The program implements the same wire protocol and decisions as
+# the other lanes. The hax spec layer (inline `hax_lib` attributes + inline Lean proofs) is
+# `cfg(hax)`-gated and absent from ordinary and SBF target artifacts.
 [lib]
 crate-type = ["lib", "cdylib"]
 

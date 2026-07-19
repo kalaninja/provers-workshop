@@ -1,11 +1,11 @@
 //! Pinocchio ticketing program (Verus lane): trusted imperative shells +
 //! SMT-verified decision cores.
 //!
-//! The program is behavior-identical to the `ticketing-creusot` reference (as
-//! in every prover lane); the spec layer is Verus. The crate is split along
-//! the verification boundary:
+//! The program implements the same wire protocol and decision semantics as the
+//! `ticketing-creusot` reference; the spec layer is Verus. The crate is split
+//! along the verification boundary:
 //!
-//! - [`mod@instructions`] - the trusted imperative shells: account parsing, PDA
+//! - `instructions` - the trusted imperative shells: account parsing, PDA
 //!   creation, clock reads, CPIs, persistence. Everything that touches the
 //!   Solana runtime. Plain Rust outside `verus!{}`, so outside verification.
 //! - `flows` - the decision cores: pure functions over wire-level state values,
@@ -20,8 +20,8 @@
 //! proc-macro erases every ghost item - specs, contracts, proofs - unless the
 //! Verus driver is compiling (`--cfg verus_keep_ghost`), so ordinary
 //! `cargo build` and `cargo build-sbf` expand the same source to the real
-//! program (host+SBF) with zero verification overhead and no `vstd` in the
-//! graph, while `cargo verus verify --features verus` checks the cores. Only
+//! program (host+SBF); ghost items and `vstd` are absent from the target
+//! artifact. `cargo verus verify --features verus` checks the cores. Only
 //! `vstd` and the foreign-type registration block (spec-only declarations) sit
 //! behind the `verus` feature.
 #![warn(missing_docs)]

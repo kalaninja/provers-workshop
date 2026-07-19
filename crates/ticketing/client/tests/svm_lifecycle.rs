@@ -31,8 +31,9 @@ use ticketing_interface::test_utils::{
 /// SBF artefact name Mollusk loads from `SBF_OUT_DIR` (Cargo normalises the
 /// package name to this). Defaults to the Creusot baseline; set
 /// `TICKETING_PROGRAM_NAME` (e.g. `ticketing_kani`, `ticketing_verus`) to run
-/// these tests against another lane's `.so` - the program is behavior-identical
-/// across lanes, so the same client suite must pass against every version.
+/// these tests against another lane's `.so`. Every lane implements the same
+/// wire protocol and decisions, so the same client suite must pass against
+/// every version.
 fn program_name() -> String {
     std::env::var("TICKETING_PROGRAM_NAME").unwrap_or_else(|_| "ticketing_creusot".to_string())
 }

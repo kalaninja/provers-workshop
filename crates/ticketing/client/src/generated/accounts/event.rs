@@ -27,7 +27,7 @@ pub struct Event {
     pub price_lamports: u64,
     /// Number of tickets sold so far.
     pub sold: u64,
-    /// Human-readable event name.
+    /// Fixed-capacity event-name bytes. UTF-8 is not enforced on-chain.
     pub name: EventName,
     /// Canonical event PDA bump.
     pub bump: u8,

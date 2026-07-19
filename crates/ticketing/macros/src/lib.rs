@@ -19,7 +19,7 @@
 //! The no-op codama derives emit nothing; they exist only so the wire crate
 //! carries the source-level `#[derive(Codama*)]` + `#[codama(...)]` metadata
 //! the IDL generator reads straight from the AST — codama matches a derive by
-//! its bare name, not by the defining crate — WITHOUT depending on
+//! its bare name, not by the defining crate — without depending on
 //! `codama-macros`, which would drag the whole codama crate graph into every
 //! ordinary build. Each declares `attributes(codama)` so the `#[codama(...)]`
 //! helper attributes compile; codama (run from the IDL generator) is what

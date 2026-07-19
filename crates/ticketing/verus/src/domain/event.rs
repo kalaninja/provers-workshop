@@ -80,7 +80,7 @@ pub open spec fn is_legal_transition_from(e: Event, prev: Event) -> bool {
 
 // --- verified mutators ----------------------------------------------------------------------
 /// Builds a fresh sales-open event with a zeroed counter - the base case for
-/// [`event_invariant`].
+/// `event_invariant`.
 pub fn event_new(
     organizer: Address,
     capacity: NonZeroU64,

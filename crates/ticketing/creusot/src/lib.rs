@@ -3,7 +3,7 @@
 //!
 //! The crate is split along the verification boundary:
 //!
-//! - [`mod@instructions`] — the trusted imperative shells (`#[trusted]` under
+//! - `instructions` — the trusted imperative shells (`#[trusted]` under
 //!   Creusot): account parsing, PDA creation, clock reads, CPIs, and
 //!   persistence. Everything that touches the Solana runtime.
 //! - `flows` — the verified decision cores: pure functions over wire-level

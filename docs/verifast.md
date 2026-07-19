@@ -21,7 +21,7 @@ without exercising separation logic at all - itself part of the finding.
 ## What is wired
 
 **The program.** `crates/ticketing/verifast` is a full Pinocchio program over the shared
-`ticketing-interface`, byte-identical in behavior to every other lane: trusted `instructions/` shells
+`ticketing-interface`, implementing the shared wire protocol and decisions: trusted `instructions/` shells
 + dispatcher/`entrypoint!`, the `flows/` decision cores, and the `domain/` accounting/lifecycle logic
 (extension traits on the wire types). It carries no in-source spec layer and no verifier dependency,
 like the Aeneas lane. `just solana build ticketing verifast` emits `ticketing_verifast.so`, and the
@@ -47,9 +47,10 @@ VeriFast's rustc, but then reported `No such struct: "ticketing_interface::Event
 rlibs are linked, yet the frontend has no view into their structs. Verifying the real cores would
 mean re-declaring the entire wire layer (`Event`/`Ticket`/`NonZeroU64`/`Address`/`AccountHeader`/
 `BoundedString` + const generics) as a trusted `.rsspec` - a large trusted surface with uncertain
-const-generic/`PhantomData` support. So the lane proves a behaviorally-identical **model** of the
-cores instead. This is the lane's headline cost, unique in the roster: the verified artifact is a
-model, not the shipping code (whose behavior is covered by the client SBF suite).
+const-generic/`PhantomData` support. So the lane proves a **model intended to reproduce the cores'
+decision semantics** instead. This is the lane's headline cost, unique in the roster: the verified
+artifact is a model, not the shipping code, and model-to-program fidelity remains trusted (the
+shipping program is separately covered by the client SBF suite).
 
 ## The model - findings
 

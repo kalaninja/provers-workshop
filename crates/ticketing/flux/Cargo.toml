@@ -29,7 +29,8 @@ solana-address = { workspace = true }
 # Flux's attribute crate (`flux_rs`), the one verification dependency. An always-on dep: its
 # attributes strip to no-ops unless `cargo flux` is driving (it sets `FLUX_BUILD_SYSROOT`, which flips
 # `flux-attrs`' build.rs from `attr_dummy` to the real macros), so ordinary host and SBF builds
-# compile this crate as plain Rust with zero verification overhead. Flux publishes no release,
+# compile this crate as plain Rust; verifier-only declarations are absent from target artifacts.
+# Flux publishes no release,
 # crates.io crate, or rustup component, so it is pinned by git rev (the same rev is baked into the
 # flux-tooling image). `cargo flux` sets `--cfg flux`, so verification-only items (the `extern_spec`
 # surface and the `defs!` block) are `#[cfg(flux)]`-gated (as under Kani); the dependency itself must

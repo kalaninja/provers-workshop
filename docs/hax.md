@@ -18,15 +18,15 @@ with Aeneas on one Lean target.
 A full `ticketing-hax` program crate over `ticketing-interface` - a port of the
 `ticketing-creusot` reference program: trusted `instructions/` shells +
 dispatcher + `entrypoint!` around the `flows/` cores and the `domain/`
-accounting, building a behavior-identical `ticketing_hax.so`. The generated
-client's Mollusk suite passes against it - the same 7 tests as the other lanes
+accounting. It implements the shared wire protocol and decisions, and the
+generated client's shared 7-test Mollusk suite passes against it
 (`just solana test-client-rust ticketing hax`).
 
 - **Inline, `cfg(hax)`-gated verification surface.** The contracts and the glue
   model are hax attributes gated behind `cfg(hax)` (which the driver sets during
-  extraction), so ordinary `cargo build` and `cargo build-sbf` compile the
-  identical program with zero verification overhead and no `hax-lib` dependency
-  (it rides in only under `[target.'cfg(hax)'.dependencies]`).
+  extraction), so the attributes and `hax-lib` dependency are absent from
+  ordinary and SBF target artifacts (`hax-lib` rides in only under
+  `[target.'cfg(hax)'.dependencies]`).
 - **Extraction-first control flow.** The extracted cores (`flows/`,
   `domain::event`) use explicit `if`/`match` instead of `?`, the same reason as
   Aeneas: `?` extracts through the `Try`/`ControlFlow` machinery and buries the
@@ -39,7 +39,7 @@ client's Mollusk suite passes against it - the same 7 tests as the other lanes
   imperative shells and `entrypoint!` are never translated. Generated Lean is
   regenerated and re-checked from scratch every run and is git-ignored; the Rust
   attributes and the committed trusted model preamble are the source artifacts,
-  so (as in the scaffold) there is no separate `replay`.
+  so there is no separate `replay`.
 
 ## What is proved
 
@@ -57,8 +57,8 @@ mirrors the Creusot reference lane except where noted:
 - **`create_event`** - `Ok` yields an initial event **satisfying the invariant**;
   the error occurs **exactly when** `capacity * price` exceeds `u64::MAX`. Because
   hax's Lean prelude has no model for `u64::checked_mul`, the overflow gate is
-  reformulated with integer division (`c > u64::MAX / p`) - behavior-identical
-  (`p >= 1` always, and the division's panic-freedom VC is discharged from the
+  reformulated with integer division (`c > u64::MAX / p`), preserving the
+  checked-multiply decision (`p >= 1` always, and the division's panic-freedom VC is discharged from the
   `NonZero` model's `nzVal_pos`), and the `Ok<=>overflow` discriminant is proved
   from `core`'s `Nat` division facts (`Nat.div_lt_iff_lt_mul`, `Nat.div_mul_le_self`).
 - **`record_sale`** - preserves the event invariant (**no overselling**), changes
@@ -129,10 +129,10 @@ the analog of Aeneas's committed axioms and Flux's `#[extern_spec]`s:
   with the not-all-zero `is_set` predicate, so its equality is decidable and
   computable - no `Classical` choice leaks into the extracted glue.
 - `NonZeroU64` as the `u64` subtype `{x // x ≠ 0}`, so its positivity is carried
-  by the model and `nzVal_pos` is **proved**, not axiomatized (a smaller trusted
-  surface than the opaque-`NonZero` lanes). The single remaining axiom is
-  `nzVal_nzMk` (the `u64 -> NonZeroU64` bridge is the identity on positive values;
-  its clamp-at-zero arm is dead under the callers' `v ≠ 0` obligation).
+  by the model. `nzVal_pos`, `nzVal_nzMk`, and the positivity-keyed
+  `nzVal_nzMk_of_pos` round trip are all **proved**, not axiomatized. The trusted
+  boundary is whether this committed subtype and the `lean::replace` mappings
+  faithfully model the Rust wire type.
 - `ProgramError` as the two variants the cores build.
 - The field-level `domain::glue` given concrete Lean models via
   `#[hax_lib::lean::replace(...)]` (accessors project a structure field, setters
@@ -152,8 +152,8 @@ status step, and invariant preservation - is proved.
   favorably: it threads `&mut Event` into the `RustM` tuple return and resolves
   `future(event)`, so the cores keep their `&mut` signatures.
 - **Rich contracts use `lean::after`, not `requires`/`ensures`.** The
-  `requires`/`ensures` -> `Spec` path works for simple predicates (the scaffold's
-  `smoke_square`) but its `pureEnsures` construction cannot handle a `match` on
+  `requires`/`ensures` -> `Spec` path works for simple predicates (as the early
+  `smoke_square` probe showed) but its `pureEnsures` construction cannot handle a `match` on
   the `Result` discriminant, which every real postcondition here needs. The
   contracts are still inline Rust attributes, but as embedded Lean Hoare triples
   (`lean::after`) - the same idiom hax's own `barrett`/`adc` examples use, noting
@@ -162,7 +162,7 @@ status step, and invariant preservation - is proved.
   [spec]`) and reused across cores, so `purchase` composes modularly without the
   blocked auto-`Spec` path (see **Composing `purchase`**).
 - **`checked_mul` unmodeled -> division-form overflow gate** (see `create_event`
-  above): behavior-identical, keeps the bound proved.
+  above): preserves the checked-multiply decision and keeps the bound proved.
 - **Committed trusted model, spliced post-extraction.** hax has no cargo-metadata
   scoping like Charon's `opaque`, and `lean::before` injection lands inside the
   first item's namespace; splicing the committed `model_preamble.lean` into the

@@ -12,8 +12,9 @@ version: tooling::build-verifast
 # Verify the VeriFast lane: bin/verifast drives the pinned rustc nightly to MIR and discharges the
 # separation-logic contracts on the three decision cores' self-contained model
 # (`verification/model.rs`). VeriFast's Rust frontend cannot ingest the shipping program's dependency
-# graph (pinocchio/bytemuck/ticketing-interface), so it proves a behaviorally-identical model rather
-# than the shipping cores - see docs/verifast.md. `-allow_assume` enables the lane's one trusted
+# graph (pinocchio/bytemuck/ticketing-interface), so it proves a model intended to reproduce the
+# shipping cores' decisions rather than the cores themselves - see docs/verifast.md. `-allow_assume`
+# enables the lane's one trusted
 # axiom, the `assume_correct` overflow-checked multiply (Creusot's `ax_checked_mul` analog).
 # Re-verifies from source each run; no committed proof session to replay.
 verify: tooling::build-verifast

@@ -78,7 +78,8 @@ pub fn create_event(
     let p = nz_get(price_lamports);
     // Overflow gate expressed with division rather than `checked_mul`: hax's Lean
     // prelude models `/` and `>` but not `u64::checked_mul`, so this keeps the
-    // bound *proved* (not trusted) while staying behavior-identical - `p >= 1`
+    // bound *proved* (not trusted) while preserving the checked-multiply
+    // decision - `p >= 1`
     // always (it came from a `NonZeroU64`), so the division cannot fault (the
     // Lean side proves this from `nzVal_pos`) and `c > u64::MAX / p` holds
     // exactly when `c * p > u64::MAX`, i.e. when `c.checked_mul(p)` is `None`.

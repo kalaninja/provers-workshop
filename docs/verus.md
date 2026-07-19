@@ -17,9 +17,9 @@ the whole spec-layer shape.
 
 ## What is wired
 
-A full `ticketing-verus` program crate over the shared `ticketing-interface` -
-behavior-identical to `ticketing-creusot`/`ticketing-kani`, split along the
-verification boundary exactly like the siblings:
+A full `ticketing-verus` program crate over the shared `ticketing-interface`,
+implementing the same wire protocol and decisions as the other lanes and split
+along the same verification boundary:
 
 - `instructions/` - trusted imperative shells (account parsing, PDA creation,
   clock reads, the transfer CPI, persistence) plus the dispatcher and
@@ -37,11 +37,10 @@ verification boundary exactly like the siblings:
 `just verus verify` discharges every core with the bundled Z3 (`11 verified, 0
 errors`), re-verifying from scratch each run (no committed artifacts).
 `just solana build ticketing verus` builds the SBF `.so`, and the generated
-client's Mollusk suite passes against it (`just solana test-client-rust
-ticketing verus`) - the same 7 tests that pass against Creusot and Kani, since
-the program is behavior-identical across lanes.
+client's shared 7-test Mollusk suite passes against it (`just solana
+test-client-rust ticketing verus`).
 
-**How a `verus!{}` tool yields a byte-identical program.** Verus verified code
+**How a `verus!{}` tool still yields a deployable program.** Verus verified code
 lives inside the `verus!{}` macro, which needs `vstd`; `vstd` cannot link into
 the `no_std` SBF build. The macro itself resolves this: `verus_builtin_macros`
 (an ordinary crates.io proc-macro, pinned to the `vstd` version) **erases**
@@ -49,8 +48,8 @@ every ghost item - `spec fn`s, contracts, `proof{}` blocks, `broadcast use` -
 unless the Verus driver is compiling (`--cfg verus_keep_ghost`, which only
 `cargo verus` sets). So the exec cores sit in ungated `verus!{}` blocks with
 their contracts inline, and ordinary `cargo build` / `cargo build-sbf` expand
-the same source to the plain program (host + SBF, zero verification overhead,
-no `vstd` in the graph; the proc-macro never links into the target artifact).
+the same source to the plain program (host + SBF); ghost items and `vstd` are
+absent from the target graph, and the proc-macro never links into the artifact.
 Only two things stay behind the `verus` Cargo feature that
 `cargo verus verify --features verus` turns on: the optional `vstd` dependency
 and the foreign-type registration block (spec-only declarations with no meaning
@@ -223,9 +222,9 @@ and no positivity axiom of its own. What vstd leaves unspecced on `NonZero` -
   demonstrably load-bearing.
 - **Behavior parity is executable, not just asserted.** The generated client's
   Mollusk suite is lane-agnostic (it loads `ticketing_<lane>.so` via
-  `TICKETING_PROGRAM_NAME`); the same 7 tests pass against `ticketing_verus.so`,
-  `ticketing_kani.so`, and `ticketing_creusot.so`, and the Verus `.so` is the same
-  size as the Creusot one.
+  `TICKETING_PROGRAM_NAME`); its shared 7 tests pass for every wired lane. This
+  is behavioral coverage, not a claim that independently compiled `.so` files
+  have identical bytes or size.
 
 ## Deferred
 

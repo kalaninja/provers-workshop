@@ -5,17 +5,57 @@
 //! re-exports the generated API and lifts `TICKETING_ID` and `shared` to
 //! where the generated code refers to them (`crate::...`).
 //!
+//! # Building an instruction
+//!
+//! The generated account types provide the canonical PDA helpers. Instruction
+//! arguments mirror the IDL exactly, including explicit reserved bytes:
+//!
+//! ```
+//! use solana_address::Address;
+//! use ticketing_client::{
+//!     TICKETING_ID,
+//!     accounts::Event,
+//!     instructions::{EventCreate, EventCreateInstructionArgs},
+//!     types::EventName,
+//! };
+//!
+//! let organizer = Address::from([1; 32]);
+//! let (event, _bump) = Event::find_pda(&organizer);
+//! let label = b"rust-summit";
+//! let mut name_bytes = [0; 64];
+//! name_bytes[..label.len()].copy_from_slice(label);
+//!
+//! let instruction = EventCreate {
+//!     organizer,
+//!     event,
+//!     // The system program address is 32 zero bytes (`111111...` in base58).
+//!     system_program: Address::from([0; 32]),
+//! }
+//! .instruction(EventCreateInstructionArgs {
+//!     capacity: 500,
+//!     price_lamports: 2_000_000,
+//!     name: EventName { len: label.len() as u16, bytes: name_bytes },
+//!     // Required by the generated API and required to be all-zero on-chain.
+//!     reserved: [0; 6],
+//! });
+//!
+//! assert_eq!(instruction.program_id, TICKETING_ID);
+//! ```
+//!
+//! `EventName` stores bytes, not validated text. Validate UTF-8 in the client
+//! before displaying it when the application requires a textual name.
+//!
 //! # Known codegen caveats
 //!
 //! **Account decoding.** The generated `Account::from_bytes` /
 //! `TryFrom<&AccountInfo>` decoders borsh-deserialize from offset 0 and do
 //! **not** validate the 8-byte header against the account's
 //! `*_DISCRIMINATOR`, nor (in the `fetch` helpers) that the account is owned
-//! by [`TICKETING_ID`]. Decode only accounts fetched by their canonical PDA; a
-//! wrong-type or uninitialized account may decode into a garbage value
-//! instead of erroring. Callers that decode untrusted addresses should use
-//! [`decode::decode_checked`] / [`decode::decode_checked_account`], which gate
-//! on the discriminator (and owner) first.
+//! by [`TICKETING_ID`]. Bytes with a compatible layout can therefore decode
+//! even when they belong to the wrong account type or program. Callers that
+//! decode untrusted addresses should use [`decode::decode_checked`], or
+//! `decode::decode_checked_account` with the `fetch` feature, to gate on the
+//! discriminator (and owner) first.
 //!
 //! **Remaining accounts (CPI builders).** `@codama/renderers-rust` 3.1.0 emits
 //! the generated `*Cpi` / `*CpiBuilder` remaining-account helpers with

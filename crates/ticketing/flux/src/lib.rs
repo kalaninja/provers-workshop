@@ -1,11 +1,11 @@
 //! Pinocchio ticketing program (Flux lane): trusted imperative shells +
 //! refinement-typed decision cores.
 //!
-//! Behavior-identical to the `ticketing-creusot` reference (as in every prover
-//! lane); only the spec layer differs. The crate is split along the
-//! verification boundary:
+//! Implements the same wire protocol and decision semantics as the
+//! `ticketing-creusot` reference; only the spec layer differs. The crate is
+//! split along the verification boundary:
 //!
-//! - [`mod@instructions`] - the trusted imperative shells: account parsing, PDA
+//! - `instructions` - the trusted imperative shells: account parsing, PDA
 //!   creation, clock reads, CPIs, persistence. Everything that touches the
 //!   Solana runtime. Each handler is `#[flux_rs::trusted]`, so Flux lifts its
 //!   signature but never looks inside.
@@ -20,7 +20,8 @@
 //!
 //! `flux_rs` attributes strip to no-ops unless `cargo flux` is driving, so
 //! ordinary `cargo build` and `cargo build-sbf` expand the same source to the
-//! real program (host+SBF) with zero verification overhead. Unlike cargo-verus,
+//! real program (host+SBF); verifier-only declarations are absent from the
+//! target artifact. Unlike cargo-verus,
 //! `cargo flux` sets `--cfg flux`, so the verification-only surface (the
 //! `extern_spec` registrations and the `defs!` block) is `#[cfg(flux)]`-gated,
 //! as under Kani.

@@ -1,6 +1,7 @@
 //! Event predicates (carried as the `Event` type invariant) and the verified
-//! lifecycle/accounting mutators. Behavior-identical to the other lanes'
-//! `EventOps`; the refinement signatures erase from ordinary/SBF builds.
+//! lifecycle/accounting mutators. These implement the same decisions as the
+//! other lanes' `EventOps`; refinement signatures erase from ordinary/SBF
+//! builds.
 //!
 //! Accounting runs on `u64` (Flux models no `NonZeroU64`): the cores read the
 //! event's fields as refined `u64` through the trusted accessors, so the clamp,

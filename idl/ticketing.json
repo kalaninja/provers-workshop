@@ -92,7 +92,7 @@
             },
             {
               "docs": [
-                "Human-readable event name."
+                "Fixed-capacity event-name bytes. UTF-8 is not enforced on-chain."
               ],
               "kind": "structFieldTypeNode",
               "name": "name",
@@ -477,7 +477,7 @@
           },
           {
             "docs": [
-              "Human-readable event name."
+              "Fixed-capacity event-name bytes. UTF-8 is not enforced on-chain."
             ],
             "kind": "instructionArgumentNode",
             "name": "name",

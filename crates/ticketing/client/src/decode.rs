@@ -94,14 +94,14 @@ impl std::error::Error for DecodeError {
 }
 
 /// Borsh-decodes `data` as `T`, but only if its leading 8 bytes equal
-/// `T::DISCRIMINATOR` — guarding against decoding a wrong-type or
-/// uninitialized account into a garbage value. `Event` and `Ticket` share the
-/// same leading layout (8-byte header, then `created_slot`) and differ there
-/// only in the header's discriminator bytes, so the discriminator is the
-/// reliable type tag.
+/// `T::DISCRIMINATOR` — guarding against decoding a compatible byte layout as
+/// the wrong account type. `Event` and `Ticket` share the same leading layout
+/// (8-byte header, then `created_slot`) and differ there first in the header's
+/// discriminator bytes, so the discriminator is the reliable type tag.
 ///
-/// The owner is not visible from raw bytes; use [`decode_checked_account`] (or
-/// check the owner yourself) when decoding an account you did not derive.
+/// The owner is not visible from raw bytes; with the `fetch` feature, use
+/// `decode_checked_account` (or check the owner yourself) when decoding an
+/// account you did not derive.
 ///
 /// # Errors
 ///

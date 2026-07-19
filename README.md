@@ -45,13 +45,16 @@ identical contracts.
 | 7 | [VeriFast](https://github.com/verifast/verifast) | separation logic | wired up - program + detached model |
 | 8 | [Prusti](https://github.com/viperproject/prusti-dev) | deductive, Viper backend | blocked - edition 2024 / resolver 3 unsupported |
 
-Creusot, Kani, Verus, Flux, Aeneas, and VeriFast are wired up today, and the
-hax-to-Lean lane now proves all six of its cores in Lean (the `ticket_buy`
-composition reuses the leaf cores' proved contracts as `mvcgen` specs). The VeriFast lane ships a real program
-like the others, but VeriFast cannot verify its cores directly - its Rust
-frontend cannot ingest the `ticketing-interface` dependency graph - so its proof
-is a detached, behaviorally-identical model of the three cores (see its report). The ordering rationale, integration ground rules, and the running
-comparison live in the roadmap index [docs/provers.md](docs/provers.md); each
+All seven implemented lanes build a real program over the same wire protocol;
+the shared seven-test client suite exercises their instruction encoding and SBF
+lifecycle. The hax-to-Lean lane proves all six cores (the `ticket_buy`
+composition reuses the leaf cores' proved contracts as `mvcgen` specs). The
+VeriFast lane cannot verify the shipping cores directly because its Rust
+frontend cannot ingest the `ticketing-interface` dependency graph; it proves a
+detached model intended to reproduce the three cores' decision semantics. The
+model-to-program correspondence remains part of that lane's trusted surface.
+The ordering rationale, integration ground rules, and running comparison live
+in the roadmap index [docs/provers.md](docs/provers.md); each
 wired lane has a full report next to it ([docs/creusot.md](docs/creusot.md),
 [docs/kani.md](docs/kani.md), [docs/verus.md](docs/verus.md),
 [docs/flux.md](docs/flux.md), [docs/aeneas.md](docs/aeneas.md),
@@ -72,11 +75,17 @@ Three instructions over two PDA-backed accounts:
 - `Event` PDA: `["event", organizer]` - one event per organizer.
 - `Ticket` PDA: `["ticket", event, buyer]` - one ticket per buyer; its
   existence is the "already bought" signal.
+- Event names are at most 64 bytes. The program preserves their bytes but does
+  not validate UTF-8; clients must validate before treating a name as text.
 
 ## Prerequisites
 
 - Docker (with BuildKit)
 - [`just`](https://github.com/casey/just)
+
+The committed program ID is an example address whose keypair is not retained.
+Replace `package.metadata.solana.program-id` in the interface manifest and
+regenerate the IDL/client before attempting a deployment.
 
 Everything else - pinned Rust toolchains, the Agave/SBF
 toolchain, node/pnpm for codegen, the verifiers and their solvers - lives in
@@ -140,8 +149,7 @@ scripts/hooks/pre-push      change-scoped checks (Rust + each verifier lane)
 just/                       recipe modules (rust, solana, creusot, kani, verus, flux, aeneas, hax, verifast, tooling)
 
 crates/ticketing/interface  wire layer: byte layouts + program-side helpers (shared by all provers)
-crates/ticketing/creusot    the Creusot program crate: trusted shells + verified cores (one crate per prover)
-crates/ticketing/hax        hax-to-Lean lane: inline contracts, all 6 cores proved in Lean
+crates/ticketing/<prover>   seven program crates: creusot, kani, verus, flux, aeneas, hax, verifast
 crates/ticketing/client     codama-rendered Rust client + handwritten checked decoders
 crates/ticketing/macros     proc-macros: creusot_extension, codegen derives, no-op codama stand-ins
 
@@ -182,9 +190,10 @@ program reads or writes:
   `NoUninit + CheckedBitPattern` so account data casts in place with full
   validation (`bytemuck::checked::try_from_bytes`) - no deserialization step,
   no heap.
-- `src/args/` - instruction payloads on the same model; `EventCreateArgs`
-  shows the `TRAILING_RESERVED` trick (foreign clients may omit the trailing
-  alignment pad; the parser zero-fills and re-validates it).
+- `src/args/` - instruction payloads on the same model. The current Codama
+  client emits the full 88-byte `EventCreateArgs`, including `reserved: [0; 6]`;
+  the parser additionally accepts a manually encoded 82-byte form and
+  zero-fills the omitted trailing pad.
 - `src/program/` - the Pinocchio-side helpers: `StateAccount` (checked casts),
   `CanonicalPda`/`PdaAccount` (PDA derivation bound to the account's own seed
   fields, create/read/mutate with owner + length + canonical-address checks),
@@ -211,19 +220,21 @@ program reads or writes:
   trusted axioms modelling foreign types (`NonZeroU64`, `Address`) - the
   proof's explicit trusted computing base.
 
-All specification attributes are `cfg(creusot)`-gated: normal and SBF builds
-compile the exact same code with zero verification overhead. `cargo creusot
-prove` (in the creusot image) translates the crate to Why3, discharges every
+All specification attributes are `cfg(creusot)`-gated, so they and the
+verifier-only dependency are absent from normal and SBF target artifacts.
+`cargo creusot prove` (in the creusot image) translates the crate to Why3, discharges every
 verification condition with SMT solvers, and records one `proof.json` per VC
 under `verif/`; `just creusot replay` re-checks those sessions
 deterministically and is wired into the pre-push hook.
 
 This is the layer the workshop swaps. A new prover gets its own program crate
 (`crates/ticketing/<prover>`) over the same `ticketing-interface`, carrying
-identical `src/flows` and `src/domain` core bodies re-expressed in its syntax,
+equivalent `src/flows` and `src/domain` decisions re-expressed in its syntax,
 its own trusted shells, and a sibling `just` lane and proof-artifact directory
-alongside Creusot's - leaving the program's behavior byte-identical across
-prover crates. Its specs must cover no less than the Creusot lane's (more is
+alongside Creusot's. Every lane must preserve the shared wire protocol and
+decision semantics; the common client SBF suite provides executable parity
+coverage, not a claim that independently compiled `.so` files are byte-for-byte
+identical. Its specs must cover no less than the Creusot lane's (more is
 welcome); a clause is dropped only where the tool genuinely cannot state it,
 recorded in the lane report as an honest tool-limit cost.
 

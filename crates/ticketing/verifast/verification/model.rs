@@ -3,7 +3,7 @@
 //! This is **not** the shipping program - that lives in `../src` (a real Pinocchio program over
 //! `ticketing-interface`, built to `ticketing_verifast.so`). VeriFast's Rust frontend cannot ingest
 //! that crate's dependency graph (the external `pinocchio`/`bytemuck`/`ticketing-interface` types),
-//! so this file is a self-contained, behaviorally-identical model of the three cores -
+//! so this file is a self-contained model intended to reproduce the three cores' decisions -
 //! `create_event`, `purchase`, `close_event` - verified against `//@` contracts by the built-in
 //! Redux prover (`just verifast verify`). It is a standalone VeriFast target outside the crate's
 //! module tree; `cargo` never compiles it.
@@ -57,7 +57,7 @@ pub struct Event {
     pub price_lamports: u64,
     /// Tickets sold so far.
     pub sold: u64,
-    /// Human-readable event name (modeled by an equality tag).
+    /// Opaque event-name bytes, represented only by an equality tag.
     pub name: u64,
     /// Canonical event PDA bump.
     pub bump: u8,

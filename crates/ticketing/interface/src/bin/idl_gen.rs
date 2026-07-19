@@ -16,8 +16,8 @@
 //! ## codama post-processing fixups
 //!
 //! codama 0.9 omits or over-nests three things this program wants in its IDL,
-//! each handled by a self-contained module (defined below `main`) that rides
-//! codama's WIP korok/node API:
+//! each handled by a self-contained module (defined below `main`) that uses
+//! codama's currently unstable korok/node API:
 //!
 //! - [`docs`] injects `///` doc comments (codama ignores `#[doc]`);
 //! - [`skip`] applies `#[codama(skip)]` to struct fields (codama parses the

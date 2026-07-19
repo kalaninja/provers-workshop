@@ -12,12 +12,13 @@ pub trait InstructionArgs: NoUninit + CheckedBitPattern + Sized {
     /// omitted.
     ///
     /// When the last `TRAILING_RESERVED` bytes of [`Self::LEN`] correspond to a
-    /// `Reserved<N>` field that is hidden from the IDL (alignment-driven tail
-    /// padding), foreign clients generated from the IDL will not emit them.
-    /// [`Self::parse`] then accepts a payload of `LEN - TRAILING_RESERVED`
-    /// bytes and zero-fills the missing tail before running the normal
-    /// `CheckedBitPattern` validation. The default `0` keeps the parser strict
-    /// for args without trailing reserved padding.
+    /// `Reserved<N>` field, [`Self::parse`] also accepts a payload of
+    /// `LEN - TRAILING_RESERVED` bytes. It zero-fills the missing tail before
+    /// running the normal `CheckedBitPattern` validation. This parser
+    /// compatibility is independent of whether a client schema exposes the
+    /// reserved field: the current Codama `EventCreateArgs` schema does expose
+    /// it and the generated client emits the full payload. The default `0`
+    /// keeps the parser strict for args without trailing reserved padding.
     ///
     /// Implementors that set a non-zero value must also assert at compile time
     /// that the trailing `Reserved` field sits at `LEN - TRAILING_RESERVED`

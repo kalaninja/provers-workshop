@@ -15,10 +15,9 @@ lane report.
 A full `ticketing-aeneas` program crate over `ticketing-interface` - a port of
 the `ticketing-creusot` reference program with the whole spec layer moved out of
 the source: trusted `instructions/` shells + dispatcher + `entrypoint!` around
-the `flows/` cores and the `domain/` accounting, building a behavior-identical
-`ticketing_aeneas.so`. The generated client's Mollusk suite passes against it -
-the same 7 tests as the other lanes (`just solana test-client-rust ticketing
-aeneas`).
+the `flows/` cores and the `domain/` accounting. It implements the shared wire
+protocol and decisions, and the generated client's shared 7-test Mollusk suite
+passes against it (`just solana test-client-rust ticketing aeneas`).
 
 - **No in-Rust verification surface.** Aeneas proves from the outside, so the
   crate carries no spec attributes, no `cfg(aeneas)` (absent from the workspace

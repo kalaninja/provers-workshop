@@ -12,7 +12,10 @@ use crate::{
 /// Maximum byte length of an event name.
 pub const MAX_EVENT_NAME_BYTES: usize = 64;
 
-/// Fixed-capacity event name stored on the wire.
+/// Fixed-capacity event-name bytes stored on the wire.
+///
+/// UTF-8 is not enforced; clients that present this value as text must
+/// validate it at their own boundary.
 pub type EventName = BoundedString<MAX_EVENT_NAME_BYTES>;
 
 /// Lifecycle states an `Event` account can occupy.
@@ -76,7 +79,7 @@ pub struct Event {
     pub price_lamports: NonZeroU64,
     /// Number of tickets sold so far.
     pub sold: u64,
-    /// Human-readable event name.
+    /// Fixed-capacity event-name bytes. UTF-8 is not enforced on-chain.
     pub name: EventName,
     /// Canonical event PDA bump.
     pub bump: u8,

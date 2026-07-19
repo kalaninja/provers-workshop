@@ -22,9 +22,10 @@ use crate::{state::event::EventName, wire::Reserved};
 ///
 /// The trailing `_reserved: Reserved<6>` is alignment padding: preceding
 /// fields sum to 82 bytes, struct alignment of 8 rounds the size to 88.
-/// Codama clients send the full 88-byte payload. The parser also accepts the
-/// 82-byte form (omitting the pad) via `TRAILING_RESERVED = 6`, zero-filling
-/// the missing bytes.
+/// The current IDL exposes this field as `reserved`, so Codama clients send the
+/// full 88-byte payload and callers must set it to `[0; 6]`. The parser also
+/// accepts a manually encoded 82-byte form that omits the pad; it zero-fills
+/// those six bytes through `TRAILING_RESERVED = 6`.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, NoUninit, CheckedBitPattern, CodamaType, InstructionArgs)]
 pub struct EventCreateArgs {
@@ -34,7 +35,7 @@ pub struct EventCreateArgs {
     /// Price of one ticket in lamports. Must be non-zero.
     #[codama(type = number(u64))]
     pub price_lamports: NonZeroU64,
-    /// Human-readable event name.
+    /// Fixed-capacity event-name bytes. UTF-8 is not enforced on-chain.
     pub name: EventName,
     /// Alignment padding; must be all-zero.
     #[codama(type = fixed_size(bytes, 6))]

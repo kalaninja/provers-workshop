@@ -60,7 +60,7 @@ pub(crate) impl Event {
 
     /// The complete initial event state written by [`EventOps::new`]: a zeroed
     /// sales counter and pinned fields, the invariant
-    /// ([`EventOps::invariant`]), and the sales-open status.
+    /// (`EventOps::invariant`), and the sales-open status.
     #[cfg(creusot)]
     #[logic(open(crate), inline)]
     fn is_initial(
@@ -113,7 +113,7 @@ pub(crate) impl Event {
     }
 
     /// Builds a fresh sales-open event with a zeroed sales counter — the base
-    /// case for [`EventOps::invariant`]. Expects a non-default organizer and
+    /// case for `EventOps::invariant`. Expects a non-default organizer and
     /// bounded economics, established by the creating instruction flow.
     #[cfg_attr(creusot, requires(organizer.is_set()
         && capacity.int() * price_lamports.int() <= u64::MAX@))]

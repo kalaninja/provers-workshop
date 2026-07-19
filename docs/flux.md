@@ -18,8 +18,9 @@ Flux's foreign-type support at the pinned rev bends the rest.
 
 ## What is wired
 
-A full `ticketing-flux` program crate over the shared `ticketing-interface` -
-behavior-identical to the other lanes, split along the verification boundary:
+A full `ticketing-flux` program crate over the shared `ticketing-interface`,
+implementing the same wire protocol and decisions as the other lanes and split
+along the verification boundary:
 
 - `instructions/` - trusted imperative shells (account parsing, PDA creation,
   clock reads, the transfer CPI, persistence) plus the dispatcher and
@@ -35,14 +36,13 @@ behavior-identical to the other lanes, split along the verification boundary:
 `just flux verify` checks the crate in ~200 ms (`8 checked; 18 trusted; 0
 ignored`, 58 constraints solved), re-verifying from scratch each run (no
 committed artifacts, like Kani/Verus). `just solana build ticketing flux` builds
-the SBF `.so`, and the generated client's Mollusk suite passes against it
-(`just solana test-client-rust ticketing flux`) - the same 7 tests that pass
-against Creusot/Kani/Verus, since the program is behavior-identical.
+the SBF `.so`, and the generated client's shared 7-test Mollusk suite passes
+against it (`just solana test-client-rust ticketing flux`).
 
 The `flux_rs` attribute crate rides in as an unconditional dependency whose
 attributes strip to no-ops unless `cargo flux` is driving, so ordinary
-`cargo build` / `cargo build-sbf` compile the crate as plain Rust with zero
-verification overhead. `cargo flux` sets `--cfg flux`, so the verification-only
+`cargo build` / `cargo build-sbf` compile the crate as plain Rust; verifier-only
+declarations are absent from the target artifact. `cargo flux` sets `--cfg flux`, so the verification-only
 surface (the `flux_rs::defs!` logic block and the `#[extern_spec]` type
 registrations) is `#[cfg(flux)]`-gated, exactly as the Kani lane gates
 `#[cfg(kani)]`.
@@ -195,9 +195,9 @@ unchanged" clauses the deductive lanes state are dropped.
   full `requested` regardless of remaining capacity) turns the run red: the
   trusted setter's `v <= capacity` precondition becomes unprovable, so the
   no-oversell guarantee is demonstrably load-bearing, not vacuous.
-- **Behavior parity is executable.** The lane-agnostic client Mollusk suite
-  passes against `ticketing_flux.so` (`TICKETING_PROGRAM_NAME=ticketing_flux`) -
-  the same 7 tests that pass for the other three lanes.
+- **Behavior parity is executable.** The lane-agnostic client's shared 7-test
+  Mollusk suite passes against `ticketing_flux.so`
+  (`TICKETING_PROGRAM_NAME=ticketing_flux`) and every other wired lane.
 
 ## Deferred / not modeled
 

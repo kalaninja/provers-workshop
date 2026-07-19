@@ -6,11 +6,13 @@ license.workspace = true
 publish.workspace = true
 
 # `lib` first: host builds the rlib; `cdylib` is what `cargo build-sbf` links into the deployable
-# `.so`. Behavior-identical program to the other lanes, with no in-source spec layer and no verifier
-# dependency (like the Aeneas lane). The VeriFast proof is a self-contained model of the decision
-# cores under `verification/model.rs`, verified by `just verifast verify` - VeriFast's Rust frontend
+# `.so`. The program implements the same wire protocol and decisions as the other lanes, with no
+# in-source spec layer and no verifier dependency (like the Aeneas lane). The VeriFast proof is a
+# self-contained model of the decision cores under `verification/model.rs`, verified by `just
+# verifast verify` - VeriFast's Rust frontend
 # cannot ingest this crate's dependency graph (pinocchio/bytemuck/ticketing-interface), so it proves
-# a behaviorally-identical model rather than the shipping cores. See docs/verifast.md.
+# a model intended to reproduce their semantics rather than the shipping cores. See
+# docs/verifast.md.
 [lib]
 crate-type = ["lib", "cdylib"]
 

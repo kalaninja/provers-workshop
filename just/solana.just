@@ -10,14 +10,15 @@ version: tooling::build-solana
     MISE_ENV=solana ./scripts/docker/run-tooling.sh {{ solana_tooling_image }} solana --version
     MISE_ENV=solana ./scripts/docker/run-tooling.sh {{ solana_tooling_image }} cargo build-sbf --version
 
-# Build one Solana program crate for SBF (defaults to the Creusot lane; the program is
-# behavior-identical across lanes, e.g. `just solana build ticketing verus`).
+# Build one Solana program crate for SBF (defaults to the Creusot lane; every lane implements the
+# same wire protocol and decisions, e.g. `just solana build ticketing verus`).
 build package='ticketing' lane='creusot': tooling::build-solana
     MISE_ENV=solana ./scripts/docker/run-tooling.sh {{ solana_tooling_image }} cargo build-sbf --skip-tools-install --manifest-path crates/{{ package }}/{{ lane }}/Cargo.toml --features bpf-entrypoint
 
-# Full Solana test suite for a package/lane: build the SBF artefact once, then run the generated
-# client's SBF tests (via the `test-client-rust` dependency; just deduplicates the shared build)
-# and the program's unit + Mollusk integration tests.
+# Full Solana test suite for a package/lane: build the SBF artefact once, run the generated client's
+# lane-agnostic SBF suite (via the `test-client-rust` dependency; just deduplicates the shared build),
+# then run that program crate's own test targets. The Creusot crate has additional Mollusk integration
+# tests; other lanes currently rely primarily on the shared client suite plus their unit tests.
 test package='ticketing' lane='creusot': (build package lane) (test-client-rust package lane)
     MISE_ENV=solana ./scripts/docker/run-tooling.sh {{ solana_tooling_image }} env {{ sbf_env }} cargo nextest run --manifest-path crates/{{ package }}/{{ lane }}/Cargo.toml --features bpf-entrypoint
 
@@ -27,7 +28,7 @@ test-it package='ticketing' lane='creusot': (build package lane)
 
 # Build a lane's SBF artefact, then run the generated Rust client's integration tests against it.
 # The client suite is lane-agnostic (it loads `ticketing_<lane>.so`), so it must pass for every
-# lane: `just solana test-client-rust ticketing creusot|kani|verus`.
+# lane: `just solana test-client-rust ticketing <lane>`.
 test-client-rust package='ticketing' lane='creusot': (build package lane)
     MISE_ENV=solana ./scripts/docker/run-tooling.sh {{ solana_tooling_image }} env {{ sbf_env }} TICKETING_PROGRAM_NAME=ticketing_{{ lane }} cargo nextest run -p {{ package }}-client --features svm-tests -E 'kind(test)'
 

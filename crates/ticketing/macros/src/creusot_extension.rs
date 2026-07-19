@@ -1,4 +1,4 @@
-//! Implementation of the [`creusot_extension`](crate::creusot_extension)
+//! Implementation of the [`creusot_extension`](macro@crate::creusot_extension)
 //! attribute: generates an extension trait and its implementation from one
 //! inherent-impl-shaped declaration.
 
