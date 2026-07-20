@@ -32,6 +32,11 @@ Creusot defines the reference specification. Later lanes target the same three t
 cores and the domain operations beneath them, but exact parity is not asserted where a tool cannot
 express a clause. Every omission must be named in the lane report and in the coverage table below.
 
+Proving an error branch dead does not license removing it: shipping code keeps the reference
+fallible shape rather than witnessing a dead branch with `expect` or `unreachable!`. Totality is
+used only where the tool makes it the natural encoding; the Flux and Aeneas reports document that
+choice for `payment_for`.
+
 An implemented lane must provide:
 
 - a program crate over `ticketing-interface` that preserves the shared wire protocol and decisions;
@@ -54,7 +59,7 @@ properties in their contracts, but the guard does not independently enforce them
 The three cores are `create_event`, ticket purchase, and `close_event`. The reference domain
 operations are `payment_for`, `record_sale`, and `close_sales`.
 
-| Prover | Verification model | Coverage and bound | Disclosed gap |
+| Prover | Verification model | Coverage and bound | Disclosed limitation |
 | --- | --- | --- | --- |
 | Creusot | Full deductive proof | All cores and domain operations, unbounded | Imperative instruction shells remain trusted |
 | Kani | Bounded model checking | Core contracts plus dispatcher byte front; capacity bounded to `u8` | Proof is valid only inside the harness domain |
