@@ -7,22 +7,26 @@ run := "MISE_ENV=creusot ./scripts/docker/run-tooling.sh " + creusot_tooling_ima
 
 # Show the baked Why3 platform and z3 versions (diagnostic). cargo-creusot itself exposes no
 # version flag; the Creusot pin is the release tag in docker/creusot.Dockerfile.
+# Show the pinned Why3 platform and Z3 versions.
 version: tooling::build-creusot
     {{ run }} sh -c '/opt/creusot/data/creusot/bin/why3 --version && z3 --version'
 
 # Guard: every flow core taking an account by `&mut` must carry its `is_legal_transition_from`
 # clause (see each account's domain Ops). Host-side text scan, no tooling image; a dependency
 # of `verify`/`replay` so CI and the pre-push hook run it too.
+# Check Creusot mutable cores for the required legal-transition contract.
 check-transitions:
     ./scripts/check-ticketing-transitions.sh
 
 # Prove the program crate (Why3 + SMT). Which crates get translated is set by
 # `[workspace.metadata.creusot] default-members`; `why3find.json` + the `verif/` session are at the repo root.
+# Prove the Creusot program and update its Why3 sessions.
 verify: check-transitions tooling::build-creusot
     {{ run }} cargo creusot
 
 # Replay the committed proof sessions (verif/**/proof.json) without searching — deterministic, fast, and
 # fails if any proof no longer holds. Used by the pre-push hook and CI; dev regenerates sessions via `verify`.
+# Replay the committed Creusot proof sessions deterministically.
 replay: check-transitions tooling::build-creusot
     {{ run }} cargo creusot --replay
 

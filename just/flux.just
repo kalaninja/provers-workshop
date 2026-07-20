@@ -13,5 +13,6 @@ version: tooling::build-flux
 # run (no committed proof artifacts, like the Kani/Verus lanes). `cargo flux` sets `--cfg flux` and
 # only checks the crate because it opts in via `[package.metadata.flux] enabled = true`; the whole
 # dependency graph is recompiled under Flux's pinned nightly in a dedicated, non-incremental profile.
+# Refinement-check the Flux decision cores and domain operations.
 verify: tooling::build-flux
     {{ run }} cargo flux -p ticketing-flux

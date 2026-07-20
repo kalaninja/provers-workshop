@@ -72,7 +72,7 @@ inductive solana_program_error.ProgramError where
 | IncorrectAuthority : solana_program_error.ProgramError
 
 /-- [ticketing_interface::state::event::Event]
-    Source: 'crates/ticketing/interface/src/state/event.rs', lines 61:0-61:16
+    Source: 'crates/ticketing/interface/src/state/event.rs', lines 64:0-64:16
     Name pattern: [ticketing_interface::state::event::Event]
     Visibility: public -/
 @[rust_type "ticketing_interface::state::event::Event"]

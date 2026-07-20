@@ -14,5 +14,6 @@ version: tooling::build-kani
 # wall-clock is bounded by the slowest harness). Re-verifies from scratch every run (no
 # committed proof artifacts); `-p` scopes to the crate, terse output is CI-friendly and
 # required by `-j`. The harnesses pin the `kissat` backend.
+# Verify all Kani contracts and the dispatcher harness in parallel.
 verify: tooling::build-kani
     {{ run }} cargo kani -p ticketing-kani -Z function-contracts --output-format terse -j

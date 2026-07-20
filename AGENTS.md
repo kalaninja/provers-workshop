@@ -1,95 +1,115 @@
 # AGENTS.md
 
-## Read First
+## Read first
 
-- `README.md` for the project overview, command table, and how the pieces fit
-- `docs/provers.md` for the prover roadmap index: roster, order, statuses, comparison, per-lane
-  summaries; full lane reports are `docs/<prover>.md`, one per wired lane (`creusot.md`,
-  `kani.md`, `verus.md`, `flux.md`, `aeneas.md`, `hax.md`, `verifast.md`)
-- For Solana-specific work, load the vendored `solana-dev` skill from `.agents/skills/solana-dev/`
+- `README.md` for the project overview, quick start, command tour, and repository map.
+- `docs/architecture.md` for the shared Solana program, wire protocol, trust boundary, and generated
+  client.
+- `docs/provers.md` for the prover roster, comparison rules, current statuses, and lane reports.
+- For Solana-specific work, load the vendored `solana-dev` skill from
+  `.agents/skills/solana-dev/`.
 
-## Repo Layout
+The skill directory is vendored from the source recorded in `skills-lock.json`. Do not hand-edit its
+files; update it through `just update-skills`. `.claude/skills/solana-dev` is an intentional symlink
+to the same vendored skill.
 
-- `crates/ticketing/interface` - wire layer: byte layouts, PDA helpers, instruction decoding, plus
-  the inlined `wire/` and `program/` framework modules; shared by every prover crate
-- `crates/ticketing/creusot` - the Creusot program crate (one crate per prover): trusted shells
-  (`instructions/`), verified cores (`flows/`), domain predicates and axioms (`domain/`)
-- `crates/ticketing/client` - codama-rendered Rust client; `src/generated/` is generated output and
-  must not be hand-edited (regenerate via `just solana gen-client`)
-- `crates/ticketing/macros` - the program's proc-macros: `creusot_extension`, the
-  `InstructionAccounts`/`InstructionArgs`/`StateAccount` codegen derives, and no-op codama derive
-  stand-ins
-- `idl/ticketing.json` - committed codama IDL, regenerated via `just solana gen-idl`
-- `clients/` - codama-js codegen harness (runs in the node tooling image)
-- `verif/` - proof projects: the committed Creusot sessions, the committed Aeneas Lean model and
-  hand-written proofs, and hax's Lake project (its Lean extraction is regenerated on every
-  verification run and stays git-ignored)
+## Repository layout
 
-## Source Of Truth
+- `crates/ticketing/interface` is the verifier-free wire layer: byte layouts, PDA helpers,
+  instruction decoding, and the inlined `wire/` and `program/` framework modules.
+- `crates/ticketing/<prover>` contains one complete program crate per implemented lane. Creusot is the
+  reference split: trusted `instructions/`, verified `flows/`, and predicates and operations under
+  `domain/`.
+- `crates/ticketing/client` is the Codama-rendered Rust client. Never hand-edit `src/generated/`;
+  regenerate it with `just solana gen-client`.
+- `crates/ticketing/macros` contains `creusot_extension`, account and argument code-generation derives,
+  and no-op Codama derive stand-ins.
+- `idl/ticketing.json` is the committed Codama IDL, regenerated with `just solana gen-idl`.
+- `clients/` contains the Codama JavaScript generation harness.
+- `verif/` contains Creusot proof sessions, the committed Aeneas model and proofs, and hax's Lean
+  project. hax extraction output is regenerated and ignored.
 
-- `mise/config.toml` plus the `mise/config.<env>.toml` overlays (nightly, solana, creusot, kani,
-  verus, flux, aeneas, hax, verifast) pin every tool mise has a backend for: the rustup toolchains,
-  node/pnpm/just, and the ubi/aqua/cargo/github-backend binaries (cargo-machete, cargo-nextest,
-  Agave, kani-verifier, the Verus bundle, verusfmt, Flux's Z3 and liquid-fixpoint, Aeneas's Charon
-  nightly and elan, cargo-hax plus its driver/Rust engine and elan, the VeriFast release bundle);
-  formatting uses `MISE_ENV=nightly`
-- `Dockerfile` defines the shared base plus Rust/Node/Solana tooling stages;
-  `docker/*.Dockerfile` defines one image per prover lane. Together they own what mise cannot express: apt
-  packages, the pinned mise itself, Creusot's opam-built toolchain, Kani's `cargo kani setup`
-  bundle, Flux's from-source build (flux-driver + precompiled spec libs), Aeneas's opam-built
-  Charon+Aeneas and its Lean/mathlib toolchain, hax's isolated opam-built native helper plus pinned
-  Lean proof library, and the SBF platform-tools install
-- `Justfile` and `just/*.just` are the primary command interface
-- `rustfmt.toml` and `clippy.toml` define Rust formatting and lint behavior
-- `why3find.json` defines the prover configuration
+## Sources of truth
 
-## Adding A Lane
+- `mise/config.toml` and `mise/config.<env>.toml` pin every tool with a usable mise backend: Rust
+  toolchains, Node, pnpm, just, Markdown tooling, Agave, Kani, Verus, solvers, elan, hax, and VeriFast.
+  Formatting uses `MISE_ENV=nightly`.
+- `Dockerfile` and `docker/*.Dockerfile` own apt dependencies, the pinned mise installation, tools
+  built from source, prover setup bundles, Lean libraries, and SBF platform tools.
+- `Justfile` and `just/*.just` are the public command interface.
+- `rustfmt.toml`, `clippy.toml`, `.markdownlint-cli2.jsonc`, and `lychee.toml` define formatting and
+  documentation checks.
+- `why3find.json` defines the Creusot prover configuration.
 
-There is no single lane registry; a new prover lane touches a fixed set of places. Walk the list:
+## Documentation standard
 
-- `mise/config.<lane>.toml` - tool pins (prefer mise backends wherever one exists)
-- `docker/<lane>.Dockerfile` - apt packages and from-source builds mise cannot express, plus a
-  smoke check that actually verifies something end to end (not just `command -v`)
-- `Justfile` - the `mod <lane>` line
-- `just/<lane>.just` - the lane's recipes (at minimum `verify`; add `version` for diagnostics)
-- `just/common.just` - the `<lane>_tooling_image` variable
-- `just/tooling.just` - the `build-<lane>` recipe
-- `scripts/hooks/pre-push` - the lane's change flag, glob, shared-tooling fan-out entry, and run block
-- `README.md` - the prover table, the command tour, and the repo-map lane lists
+Project-owned documentation is `README.md`, `AGENTS.md`, `CLAUDE.md`, and `docs/**/*.md`. Vendored skill
+references are outside the editorial scope.
 
-## Native Commands
+- Write for experienced Rust, Solana, and verification readers in American English.
+- Use sentence-case headings, the canonical tool capitalization from `docs/provers.md`, and a soft
+  100-character line limit outside tables and code blocks.
+- Use `Implemented` and `Blocked` for repository statuses; reserve upstream status claims for dated,
+  primary-source-backed statements.
+- Keep commands complete and copyable. Do not use slash-separated pseudo-commands.
+- Distinguish proved behavior, executable test coverage, and trusted correspondence explicitly.
+- Put point-in-time performance measurements and their method in `docs/provers.md`; do not duplicate
+  volatile timings across lane reports.
+- Give each implemented lane report the same structure: metadata, integration, verification coverage,
+  trusted surface, key findings, limitations, and reproduction commands.
+- Run `just docs check` before handoff. Run `just docs links` when external links or ecosystem claims
+  change.
 
-Prefer `just` recipes over ad hoc lower-level commands. Run from the repository root.
+## Adding a lane
+
+There is no single lane registry. A new prover touches this fixed set of places:
+
+- `mise/config.<lane>.toml` for tool pins.
+- `docker/<lane>.Dockerfile` for dependencies and an end-to-end verification smoke check.
+- `Justfile` for `mod <lane>`.
+- `just/<lane>.just` for at least `verify`, plus `version` for diagnostics.
+- `just/common.just` for the tooling image variable.
+- `just/tooling.just` for `build-<lane>`.
+- `scripts/hooks/pre-push` for change detection and the verification gate.
+- `README.md`, `docs/provers.md`, and a normalized `docs/<lane>.md` report.
+
+Prefer mise backends over ad hoc installers. Touch `scripts/docker/run-tooling.sh` only when the tool
+needs lane-specific runtime environment plumbing.
+
+## Native commands
+
+Run commands from the repository root and prefer recipes over lower-level invocations.
 
 | Task | Command |
 | --- | --- |
-| List commands | `just --list` |
-| Install pre-push hook | `just init-hooks` |
-| Update agent skills | `just update-skills` |
-| Rust format / check / test / clippy | `just rust fmt-check`, `just rust check`, `just rust test`, `just rust clippy` |
-| Build the SBF program | `just solana build` |
-| Mollusk integration tests | `just solana test-it` |
-| Generate IDL / Rust client | `just solana gen-idl`, `just solana gen-client` |
-| Client wire-parity + SBF tests | `just solana test-client-rust` |
-| Prove / replay Creusot sessions | `just creusot verify`, `just creusot replay` |
-| Extract and prove the hax Lean lane | `just hax verify` |
-| Verify the VeriFast decision cores | `just verifast verify` |
+| List every command | `just --list --list-submodules` |
+| Check Markdown and local links | `just docs check` |
+| Check external links | `just docs links` |
+| Install the pre-push hook | `just init-hooks` |
+| Update vendored skills | `just update-skills` |
+| Format, check, test, and lint Rust | `just rust fmt-check`, `just rust check`, `just rust test`, `just rust clippy` |
+| Build the default SBF program | `just solana build` |
+| Run default Mollusk integration tests | `just solana test-it` |
+| Generate the IDL and Rust client | `just solana gen-idl`, `just solana gen-client` |
+| Test generated-client parity | `just solana test-client-rust` |
+| Prove or replay Creusot | `just creusot verify`, `just creusot replay` |
+| Extract and prove hax | `just hax verify` |
+| Verify the detached VeriFast model | `just verifast verify` |
 
-## Repo Defaults
+Build, test, generation, and verification recipes run through Dockerized tooling. The host needs Docker
+and just. `init-hooks` and the Creusot transition text check are intentional host-side operations;
+`update-skills` is a maintainer command that additionally requires host `npx`.
 
-- Run commands from the repository root unless a task explicitly requires another directory
-- Lint, check, test, build, and verification flows run through the Dockerized tooling; the host
-  needs Docker and `just` only
-- Inside tooling containers, repository-managed binaries resolve through `mise exec`
+## Handoff minimums
 
-## Handoff Minimums
-
-- Before finishing Rust changes, run `just rust fmt-check` and `just rust check`
-- For behavior changes, also run `just rust test`
-- For changes touching the program or Mollusk integration tests, also run `just solana test-it`
-- For changes touching Creusot specs (`domain/`, `flows/`) or `verif/`, run `just creusot replay`
-  (regenerate sessions with `just creusot verify` when specs changed)
-- For changes touching the hax crate, toolchain, scripts, or Lean project, run `just hax verify`
-- For changes touching the verifast crate, run `just verifast verify` (the detached model); for its
-  program code, also `just solana build ticketing verifast` and `just solana test-client-rust ticketing verifast`
-- Prefer `just rust clippy` before larger submissions
+- For documentation changes, run `just docs check`; also run `just docs links` when links or external
+  facts change.
+- Before finishing Rust changes, run `just rust fmt-check` and `just rust check`.
+- For behavior changes, also run `just rust test`.
+- For program or Mollusk changes, also run `just solana test-it`.
+- For Creusot specifications or `verif/`, run `just creusot replay`; regenerate sessions with
+  `just creusot verify` when specifications change.
+- For hax source, tooling, scripts, or Lean project changes, run `just hax verify`.
+- For VeriFast model changes, run `just verifast verify`. For VeriFast program changes, also run
+  `just solana build ticketing verifast` and `just solana test-client-rust ticketing verifast`.
+- Prefer `just rust clippy` before larger submissions.

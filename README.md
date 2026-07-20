@@ -1,255 +1,160 @@
-# provers-workshop
+# Provers Workshop
 
-A workshop for putting different Rust formal-verification tools on the *same*
-real Solana program and comparing them. The program - a small but complete
-[Pinocchio](https://github.com/anza-xyz/pinocchio) event-ticketing toy, built
-the way we build production programs - and its verified decision cores are the
-fixed target; each prover is wired in behind the same `just` workflow, so its
-proof style, ergonomics, and trusted computing base can be judged on realistic
-code instead of a synthetic benchmark.
+Provers Workshop compares Rust formal-verification tools on the same nontrivial target: a small,
+complete [Pinocchio](https://github.com/anza-xyz/pinocchio) event-ticketing program for Solana.
+Each implemented lane preserves one wire protocol and one set of decision semantics, then expresses
+and verifies those decisions in the prover's native style.
 
-The base program stands on three practices, and the comparison happens on top
-of them:
+The program is deliberately a workshop target, not production software. Its architecture is
+production-oriented—zero-copy accounts, canonical PDAs, checked state transitions, a generated IDL,
+and an SBF-tested client—but the committed program ID is not deployable and the code has not received
+a production security audit.
 
-1. **Hermetic builds** - every command runs inside Docker tooling images
-   through `just` + [`mise`](https://mise.jdx.dev); the host needs Docker and
-   `just`, nothing else.
-2. **Zero-copy wire data** - on-chain state and instruction payloads are
-   `#[repr(C)]` structs cast directly from account bytes, with every byte
-   validated by `bytemuck::CheckedBitPattern`.
-3. **Verified cores** - each instruction's decision core is a pure function
-   carrying a machine-checked contract: no overflow, invariant preservation,
-   exact state transitions, while the imperative shells stay trusted. *This is
-   the layer the workshop varies* - swapping out the tool that discharges those
-   contracts.
+## What this repository compares
 
-Plus the supporting cast: a [codama](https://github.com/codama-idl/codama) IDL
-generated from the interface crate and a rendered Rust client tested against
-the program byte-for-byte.
+Every lane is evaluated on the same questions:
 
-## The provers
+- Which code and models must be trusted?
+- How legible are the contracts?
+- Is verification bounded or unbounded, and what properties are omitted?
+- How repeatable are proof artifacts and verification runs?
+- How much must ordinary Rust bend to fit the tool?
+- How difficult is the toolchain to pin and reproduce?
 
-The verified cores stay fixed; the tool that proves them is the variable. Each
-prover gets its own program crate over the shared `ticketing-interface`, plus
-its own `just` lane and proof artifacts, so results sit side by side on
-identical contracts.
+The detailed comparison and dated measurements live in
+[the prover index](docs/provers.md). Each implemented lane has a full report under `docs/`.
 
-| # | Prover | Approach | Status |
+| # | Prover | Approach | Repository status |
 | --- | --- | --- | --- |
-| 1 | [Creusot](https://github.com/creusot-rs/creusot) | deductive, translated to Why3 + SMT (alt-ergo / z3 / cvc5) | wired up |
-| 2 | [Kani](https://github.com/model-checking/kani) | bounded model checking (CBMC) | wired up |
-| 3 | [Verus](https://github.com/verus-lang/verus) | SMT over a verification dialect of Rust | wired up |
-| 4 | [Flux](https://github.com/flux-rs/flux) | refinement (liquid) types | wired up |
-| 5 | [Aeneas](https://github.com/AeneasVerif/aeneas) | functional translation to Lean | wired up |
-| 6 | [hax](https://github.com/cryspen/hax) | translation to F* / Rocq / Lean | wired up |
-| 7 | [VeriFast](https://github.com/verifast/verifast) | separation logic | wired up - program + detached model |
-| 8 | [Prusti](https://github.com/viperproject/prusti-dev) | deductive, Viper backend | blocked - edition 2024 / resolver 3 unsupported |
+| 1 | [Creusot](https://github.com/creusot-rs/creusot) | Deductive verification through Why3 and SMT | Implemented baseline |
+| 2 | [Kani](https://github.com/model-checking/kani) | Bounded model checking through CBMC | Implemented |
+| 3 | [Verus](https://github.com/verus-lang/verus) | SMT over a verification dialect of Rust | Implemented |
+| 4 | [Flux](https://github.com/flux-rs/flux) | Refinement types through liquid-fixpoint and Z3 | Implemented |
+| 5 | [Aeneas](https://github.com/AeneasVerif/aeneas) | Rust translation and interactive Lean proofs | Implemented |
+| 6 | [hax](https://github.com/cryspen/hax) | Rust translation to inline Lean proofs | Implemented |
+| 7 | [VeriFast](https://github.com/verifast/verifast) | Separation logic and symbolic execution | Implemented program plus detached model |
+| 8 | [Prusti](https://github.com/viperproject/prusti-dev) | Deductive verification through Viper | Blocked by edition 2024 and resolver 3 |
 
-All seven implemented lanes build a real program over the same wire protocol;
-the shared seven-test client suite exercises their instruction encoding and SBF
-lifecycle. Every wired lane proves the three decision cores and their domain
-ops at the Creusot reference coverage, recording any tool-limit gap in its lane
-report. The VeriFast lane cannot verify the shipping cores directly because its
-Rust frontend cannot ingest the `ticketing-interface` dependency graph; it
-proves a detached model intended to reproduce the three cores' decision
-semantics, and the model-to-program correspondence remains part of that lane's
-trusted surface. The ordering rationale, integration ground rules, and running
-comparison live in the roadmap index [docs/provers.md](docs/provers.md); each
-wired lane has a full report next to it ([docs/creusot.md](docs/creusot.md),
-[docs/kani.md](docs/kani.md), [docs/verus.md](docs/verus.md),
-[docs/flux.md](docs/flux.md), [docs/aeneas.md](docs/aeneas.md),
-[docs/hax.md](docs/hax.md), [docs/verifast.md](docs/verifast.md)). What we
-compare per prover: what has to be marked trusted, how the contracts read,
-proof and replay speed, and how far the cores must bend to fit the tool.
+All seven implemented program crates build to SBF and pass the same seven-test generated-client
+suite. Six lanes verify the shipping decision cores directly or through generated models. VeriFast
+is the explicit exception: its Rust frontend cannot import the interface crate's type definitions,
+so it verifies a detached transcription of the three top-level cores. That model-to-program
+correspondence remains trusted.
 
 ## The program
 
-Three instructions over two PDA-backed accounts:
+The shared protocol has three instructions and two PDA-backed account types:
 
-| Instruction | Accounts | What it does |
+| Instruction | Accounts | Behavior |
 | --- | --- | --- |
-| `event_create` | organizer (signer), event PDA, system program | Creates an `Event` with a fixed ticket `capacity` and `price_lamports` |
-| `ticket_buy` | buyer (signer), event, organizer, ticket PDA, system program | Sells up to the remaining capacity (clamped), records a per-buyer `Ticket`, pays the organizer in lamports |
-| `event_close` | organizer (signer), event | `SalesOpen -> SalesClosed` |
+| `event_create` | Organizer, event PDA, system program | Create an event with fixed capacity and price |
+| `ticket_buy` | Buyer, event, organizer, ticket PDA, system program | Clamp a purchase to remaining capacity and pay the organizer |
+| `event_close` | Organizer, event | Transition `SalesOpen` to `SalesClosed` |
 
-- `Event` PDA: `["event", organizer]` - one event per organizer.
-- `Ticket` PDA: `["ticket", event, buyer]` - one ticket per buyer; its
-  existence is the "already bought" signal.
-- Event names are at most 64 bytes. The program preserves their bytes but does
-  not validate UTF-8; clients must validate before treating a name as text.
+- Event PDA: `["event", organizer]`—one event per organizer.
+- Ticket PDA: `["ticket", event, buyer]`—one ticket per buyer and event.
+- Event names are limited to 64 bytes. The program preserves bytes but does not validate UTF-8;
+  clients must validate before treating a name as text.
+
+See [Architecture](docs/architecture.md) for account layouts, the trusted-shell/verified-core split,
+the build system, proof artifacts, and IDL/client generation.
 
 ## Prerequisites
 
-- Docker (with BuildKit)
+- Docker with BuildKit
 - [`just`](https://github.com/casey/just)
 
-The committed program ID is an example address whose keypair is not retained.
-Replace `package.metadata.solana.program-id` in the interface manifest and
-regenerate the IDL/client before attempting a deployment.
+Build, test, code-generation, and verification recipes run in pinned Docker tooling images. The
+host-side exceptions are `just init-hooks`, the Creusot transition text check, and the maintainer-only
+`just update-skills` command; the last one also requires `npx` on the host.
 
-Everything else - pinned Rust toolchains, the Agave/SBF
-toolchain, node/pnpm for codegen, the verifiers and their solvers - lives in
-the tooling images built from the repo's Dockerfiles. Every tool mise has a
-backend for is pinned in `mise*.toml` (toolchains, Agave, kani-verifier, the
-Verus bundle, verusfmt, cargo-hax, the hax driver/Rust engine, elan); the root
-`Dockerfile` and `docker/*.Dockerfile` own the rest (apt packages, the pinned
-mise itself, Creusot's opam build, Kani's setup bundle, SBF platform-tools,
-hax's isolated opam-built protocol helper, and the pinned hax Lean proof
-library).
-Images build on demand the first time a recipe needs them; the Creusot image
-is the slow one (it compiles Why3 and the provers through opam - expect tens
-of minutes once).
+The first invocation builds its tooling image. Creusot, Aeneas, and hax compile substantial OCaml or
+Lean stacks and can take tens of minutes on a cold machine.
+
+## Quick start
+
+```sh
+just --list --list-submodules
+just rust check
+just rust test
+just solana test-it
+just creusot replay
+```
+
+The default Solana and Creusot commands target the baseline `ticketing-creusot` lane.
 
 ## Commands
 
 ```sh
-just --list                  # everything below, discoverable
+# Documentation
+just docs check
+just docs links
 
-just rust fmt / fmt-check    # pinned-nightly rustfmt
-just rust check / clippy / test / machete
+# Rust workspace
+just rust fmt
+just rust fmt-check
+just rust check
+just rust clippy
+just rust test
+just rust machete
 
-just solana build            # cargo build-sbf -> target/deploy/ticketing_creusot.so
-just solana test-it          # Mollusk integration tests against the .so
-just solana gen-idl          # interface crate -> idl/ticketing.json
-just solana gen-client       # idl/ticketing.json -> crates/ticketing/client/src/generated
-just solana test-client-rust # generated-client wire parity + SBF lifecycle tests
+# Solana program and generated client
+just solana build
+just solana test-it
+just solana gen-idl
+just solana gen-client
+just solana test-client-rust
 
-just creusot verify          # prove all verification conditions (Why3 + SMT)
-just creusot replay          # deterministically replay committed proofs (pre-push)
-just creusot verify-ide      # open the Why3 IDE on any unproved goal
+# Creusot
+just creusot verify
+just creusot replay
+just creusot verify-ide
 
-just kani verify             # bounded model-check the cores (CBMC); re-proves from scratch
-
-just verus verify            # prove the cores (Verus -> bundled Z3); re-proves from scratch
-just verus fmt               # format inside verus!{} blocks (pinned verusfmt)
-just verus fmt-check         # Verus-lane formatting gate (pre-push)
-
-just flux verify             # refinement-type-check the cores (Flux -> fixpoint/Z3); re-proves from scratch
-
-just aeneas verify           # extract (Charon) -> translate (Aeneas) -> check the Lean proofs
-just aeneas replay           # deterministically re-check the committed Lean proofs (pre-push)
-
-just hax verify              # extract Rust -> Lean and compile the inline core proofs
-just hax version             # show the pinned hax engine and Lean versions
-
-just verifast verify         # verify the three decision cores (detached VeriFast model)
-
-just init-hooks              # wire the repo-tracked pre-push hook into this clone
+# Other prover lanes
+just kani verify
+just verus verify
+just verus fmt-check
+just flux verify
+just aeneas verify
+just aeneas replay
+just hax verify
+just verifast verify
 ```
 
-## Repo map
+To test another SBF lane against the shared client, pass the package and lane explicitly:
 
-```
-mise/config.toml            tool pins (stable Rust, just, nextest, node, pnpm)
-mise/config.<env>.toml      per-lane overlays: nightly, solana, creusot, kani, verus, flux, aeneas, hax, verifast (MISE_ENV=<env>)
-Dockerfile                  shared base plus rust / node / solana tooling stages
-docker/                     one Dockerfile per prover lane, built from a tagged shared base
-scripts/docker/run-tooling.sh   docker-run wrapper every recipe goes through
-scripts/hooks/pre-push      change-scoped checks (Rust + each verifier lane)
-just/                       recipe modules (rust, solana, creusot, kani, verus, flux, aeneas, hax, verifast, tooling)
-
-crates/ticketing/interface  wire layer: byte layouts + program-side helpers (shared by all provers)
-crates/ticketing/<prover>   seven program crates: creusot, kani, verus, flux, aeneas, hax, verifast
-crates/ticketing/client     codama-rendered Rust client + handwritten checked decoders
-crates/ticketing/macros     proc-macros: creusot_extension, codegen derives, no-op codama stand-ins
-
-idl/ticketing.json          committed codama IDL (regenerated via `just solana gen-idl`)
-clients/                    codama-js codegen harness (runs in the node image)
-verif/                      proof projects/sessions (hax extraction is generated and ignored)
-why3find.json               prover configuration (alt-ergo, z3, cvc5 + tactics)
-docs/provers.md             prover roadmap index: roster, order, running comparison, summaries
-docs/<prover>.md            full per-lane reports (one per wired lane)
+```sh
+just solana test-client-rust ticketing verus
 ```
 
-## How the pieces fit
+## Repository map
 
-### Build system
+```text
+crates/ticketing/interface   Shared wire layouts, PDA helpers, and instruction decoding
+crates/ticketing/<prover>    Seven program crates over the same interface
+crates/ticketing/client      Generated Rust client plus checked decoders and SBF tests
+crates/ticketing/macros      Program and verification proc-macros
 
-`just` is a thin host-side wrapper: every recipe shells into
-`scripts/docker/run-tooling.sh <image> <command>`, which `docker run`s the
-matching tooling image with the repo mounted at `/workspace`, your UID/GID,
-and per-repo caches under `.cache/`. Inside the container, binaries resolve
-through `mise exec` against the committed `mise*.toml` pins - `MISE_ENV`
-selects the overlay (`nightly` for rustfmt, `solana` for Agave, or a prover name
-such as `creusot`/`hax`). Tools are baked into the images at build time
-(`MISE_EXEC_AUTO_INSTALL=false`), so a recipe either runs the pinned tool or
-fails loudly.
+idl/ticketing.json           Committed Codama IDL
+clients/                     Codama JavaScript generation harness
+verif/                       Creusot sessions and Lean proof projects
 
-### Zero-copy data
+mise/                        Pinned host-independent tool versions
+Dockerfile, docker/          Shared and prover-specific tooling images
+Justfile, just/              Public command interface
+scripts/                     Tooling wrapper, proof pipelines, and pre-push hook
+docs/                        Architecture, comparison, and lane reports
+```
 
-`crates/ticketing/interface` is the single source of truth for every byte the
-program reads or writes:
+Generated files under `crates/ticketing/client/src/generated/` and the Aeneas generated Lean model
+must not be hand-edited. Regenerate them through their documented `just` recipes.
 
-- `src/wire/` - the primitives: `AccountHeader<T>` (7-byte discriminator +
-  schema version, only its exact bytes are a valid bit pattern), `Reserved<N>`
-  (explicit padding that must be all-zero), `BoundedString<N>` (length-prefixed
-  fixed storage with canonical zero tail).
-- `src/state/` - `Event` and `Ticket`: `#[repr(C)]` structs with documented
-  layout tables, compile-time size/alignment asserts, and
-  `NoUninit + CheckedBitPattern` so account data casts in place with full
-  validation (`bytemuck::checked::try_from_bytes`) - no deserialization step,
-  no heap.
-- `src/args/` - instruction payloads on the same model. The current Codama
-  client emits the full 88-byte `EventCreateArgs`, including `reserved: [0; 6]`;
-  the parser additionally accepts a manually encoded 82-byte form and
-  zero-fills the omitted trailing pad.
-- `src/program/` - the Pinocchio-side helpers: `StateAccount` (checked casts),
-  `CanonicalPda`/`PdaAccount` (PDA derivation bound to the account's own seed
-  fields, create/read/mutate with owner + length + canonical-address checks),
-  and the `InstructionArgs` parser. Every account carries
-  `created_slot`/`updated_slot`; mutations open a slot-pinned `SlotGuard`
-  borrow that rejects clock regressions up front and stamps `updated_slot` on
-  drop.
+## Deployment warning
 
-### Verified cores (Creusot baseline)
-
-`crates/ticketing/creusot` is split along the verification boundary:
-
-- `src/instructions/` - **trusted shells** (`#[trusted]` under Creusot):
-  account parsing, PDA creation, clock reads, the lamport-transfer CPI,
-  persistence.
-- `src/flows/` - **verified cores**: pure functions over wire-level values.
-  Their `requires`/`ensures` contracts are the program's specification - e.g.
-  `ticket_buy::purchase` proves the sale is clamped to remaining capacity,
-  `payment = quantity * price` cannot overflow, the event invariant
-  (`sold <= capacity`, bounded economics) is preserved, and on error the event
-  is unchanged.
-- `src/domain/` - the predicates (`invariant`, `is_initial`,
-  `is_status_*`) and typed mutators those contracts are written in, plus the
-  trusted axioms modelling foreign types (`NonZeroU64`, `Address`) - the
-  proof's explicit trusted computing base.
-
-All specification attributes are `cfg(creusot)`-gated, so they and the
-verifier-only dependency are absent from normal and SBF target artifacts.
-`cargo creusot` (in the creusot image) translates the crate to Why3,
-discharges every verification condition with SMT solvers, and records one
-`proof.json` per VC under `verif/`; `just creusot replay` re-checks those
-sessions deterministically and is wired into the pre-push hook.
-
-This is the layer the workshop swaps. A new prover gets its own program crate
-(`crates/ticketing/<prover>`) over the same `ticketing-interface`, carrying
-equivalent `src/flows` and `src/domain` decisions re-expressed in its syntax,
-its own trusted shells, and a sibling `just` lane and proof-artifact directory
-alongside Creusot's. Every lane must preserve the shared wire protocol and
-decision semantics; the common client SBF suite provides executable parity
-coverage, not a claim that independently compiled `.so` files are byte-for-byte
-identical. Its specs must cover no less than the Creusot lane's (more is
-welcome); a clause is dropped only where the tool genuinely cannot state it,
-recorded in the lane report as an honest tool-limit cost.
-
-### IDL and client
-
-The interface crate doubles as the codama source: `#[derive(Codama*)]` markers
-and `#[codama(...)]` attributes sit directly on the wire types (the derives
-are no-op stand-ins from `crates/ticketing/macros`, so codama never enters
-normal builds). `just solana gen-idl` walks the source AST and writes
-`idl/ticketing.json`; `just solana gen-client` renders the Rust client from
-that IDL with `@codama/renderers-rust` in the node image. Generated code under
-`src/generated/` is never edited by hand - `tests/wire_parity.rs` proves the
-client's encodings decode through the program's own decoder, and
-`tests/svm_lifecycle.rs` drives the real `.so` end-to-end through the
-generated builders.
+The committed program ID is an example address whose keypair is not retained. Before deploying,
+replace `package.metadata.solana.program-id` in the interface manifest, then regenerate the IDL and
+client. No deployment recipe in this repository should be treated as a production release process.
 
 ## License
 
-Apache-2.0 (see `LICENSE`).
+Apache-2.0. See [LICENSE](LICENSE).

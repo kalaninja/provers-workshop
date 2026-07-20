@@ -13,5 +13,6 @@ version: tooling::build-hax
 # compiles the generated module and its inline proof directly against the image's prebuilt Hax/Qq
 # oleans (Lake is editor-only because it re-clones Qq). Re-verifies from source on every run;
 # generated Lean is intentionally not committed.
+# Extract the hax crate to Lean and check its inline proofs from source.
 verify: tooling::build-hax
     {{ run }} bash scripts/hax/verify.sh

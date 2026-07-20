@@ -1,71 +1,91 @@
 # Creusot lane
 
-Lane 1 of [the prover roadmap](provers.md) - the baseline every later lane
-is compared against. Status: **wired up**. Facts are point-in-time; last
-reviewed 2026-07-19.
+| Field | Value |
+| --- | --- |
+| Lane | 1, reference baseline |
+| Status | Implemented |
+| Pin | Creusot `v0.12.0`, Rust `nightly-2026-04-21` |
+| Verification | Deductive proof through Why3 and SMT |
+| Artifacts | 23 committed `proof.json` sessions |
+| Last reviewed | 2026-07-19 |
 
-[Creusot](https://github.com/creusot-rs/creusot) translates Rust carrying
-pearlite contracts into Why3; `why3find` discharges the verification
-conditions with SMT solvers (alt-ergo, z3, cvc5, cvc4 - see `why3find.json`,
-with `compute_specified` + `split_vc` tactics).
+[Creusot](https://github.com/creusot-rs/creusot) translates Rust with pearlite contracts into Why3.
+`why3find` dispatches the resulting verification conditions to the Alt-Ergo, Z3, CVC4, and CVC5
+configuration in `why3find.json`.
 
-## What is wired
+## Integration
 
-Contracts on the flow cores and domain ops
-(`#[cfg_attr(creusot, requires(...)/ensures(...))]`), pure predicates under
-`#[cfg(creusot)]`, trusted axioms for foreign types, 23 committed proof
-sessions under `verif/`, `just creusot verify / replay / verify-ide`, and the
-pre-push replay gate. The full walkthrough is in the README's "Verified cores"
-section.
+`ticketing-creusot` is the source baseline for the other program crates. Its structure makes the
+verification boundary explicit:
 
-## What is proved
+- `instructions/` contains trusted Solana shells: account validation, PDA creation, Clock access,
+  lamport-transfer CPI, and persistence.
+- `flows/` contains the three pure decision cores.
+- `domain/` contains predicates, verified state operations, and trusted foreign-type axioms.
 
-The reference coverage every later lane is measured against. The three flow
-cores and the three domain ops carry pearlite contracts discharged as a full
-deductive proof - unbounded, with no in-code proof hints (the alt-ergo/z3/cvc5
-ensemble closes every goal, including the nonlinear one):
+Contracts use `cfg_attr(creusot, requires(...))` and `ensures(...)`; predicates and verifier-only
+dependencies are gated by `cfg(creusot)`. Ordinary host and SBF builds contain none of the proof
+surface.
 
-- **`payment_for`** - `payment = quantity * price` with no overflow, returned
-  as `NonZeroU64` (positivity by type); the nonlinear `quantity * price <=
-  capacity * price <= u64::MAX` step closes inside the solvers, hint-free.
-- **`create_event`** - `Ok` yields a fresh event satisfying `is_initial`;
-  `Err` only when `capacity * price` overflows `u64`.
-- **`record_sale`** - preserves the invariant (`sold <= capacity` - no
-  overselling), changes only `sold`, grows it by the exact positive clamp
-  `min(requested, capacity - sold)`, and on error leaves the event unchanged.
-- **`close_sales`** / **`close_event`** - the legal `open -> closed` status
-  step (`is_legal_transition_from`), organizer authentication (`close_event`),
-  full frames, and on-error-unchanged.
-- **`purchase`** (ticket_buy) - the end-to-end composition: invariant and
-  legal transition preserved, only `sold` changes and grows by exactly the
-  ticket's clamped quantity, the ticket satisfies `is_initial` and
-  `is_consistent_with` the updated event, the payment is the exact product
-  `quantity * price`, and on error the event is unchanged.
+The lane owns `just creusot verify`, deterministic `replay`, the Why3 IDE workflow, and a pre-push
+replay gate. The transition text guard also covers this lane's mutable flow cores.
 
-## Lessons that set the baseline
+## Verification coverage
 
-- Foreign types need an explicit trusted computing base: `NonZeroU64` and
-  `Address` are modelled in `src/domain/` by `#[trusted]` shims
-  (`ax_checked_mul`, `ax_eq`, ...) tied to opaque logic functions (`int`,
-  `is_set`).
-- The orphan rule pushes foreign-type contracts through crate-local extension
-  traits; the `creusot_extension` proc-macro keeps trait and impl attributes
-  from drifting. (The `extern_spec!` route is closed here: the std spec for
-  `PartialEq::eq` speaks through `DeepModel`, which a foreign type cannot be
-  given from this crate. Contrast with the Verus lane, whose
-  `assume_specification` is a verifier-level registration the orphan rule does
-  not touch - it pins the same equality axiom onto `<Address as
-  PartialEq>::eq` itself; see [verus.md](verus.md).)
-- Proof sessions replay deterministically: reviewable artifacts, no solver
-  roulette in CI.
-- Debugging a failed proof happens outside the source. An unproved goal is not
-  a compiler diagnostic pointing at a Rust line - it is an unproved VC in a
-  Why3 session, and understanding it means opening the Why3 IDE
-  (`just creusot verify-ide`) and reading the goal as translated WhyML: a
-  second language and mental model between the programmer and the failure.
-  This is the flip side of the ensemble's automation - when the solvers close
-  a goal silently the pipeline is invisible, when they do not, the diagnosis
-  costs a context switch. The compensating ergonomic win: the exec code is
-  plain Rust, so rustfmt, clippy, and rust-analyzer work everywhere.
-  (Contrast: Verus reports the same failure as a rustc-style diagnostic with a
-  span into the source, often with a suggested fix; see [verus.md](verus.md).)
+Creusot defines the target coverage for later lanes:
+
+- `payment_for` returns the exact positive `quantity * price` product and cannot overflow.
+- `create_event` succeeds with a fully initial event and fails exactly when
+  `capacity * price_lamports` overflows.
+- `record_sale` preserves the invariant, changes only `sold`, returns the exact positive clamp, and
+  leaves the event unchanged on error.
+- `close_sales` and `close_event` prove the legal open-to-closed transition, exact frames,
+  organizer authentication, and on-error unchanged state.
+- `purchase` composes the domain operations end to end: no overselling, exact sold delta, consistent
+  ticket construction, exact payment, invariant preservation, and on-error unchanged state.
+
+The proof is unbounded. The nonlinear multiplication bound closes through the solver ensemble without
+an in-source proof hint.
+
+## Trusted surface
+
+The imperative instruction shells are outside the proof. The domain layer also trusts explicit models
+for foreign types:
+
+- `NonZeroU64` operations are tied to an opaque logical integer view through `ax_*` shims.
+- `Address` set-ness and equality are modeled through trusted predicates and wrappers.
+- Extension traits carry foreign-function contracts because Rust's orphan rule prevents the desired
+  direct registrations.
+
+The trusted surface is visible in source and is part of the comparison; solver success does not prove
+the axioms themselves.
+
+## Key findings
+
+- The executable cores stay plain Rust, so rustfmt, Clippy, and rust-analyzer see the complete runtime
+  code.
+- Committed Why3 sessions provide reviewable and deterministic replay rather than fresh solver search
+  in every gate.
+- Proof failures are diagnosed in translated WhyML goals through the Why3 IDE. That makes the success
+  path highly automated but adds a second language and mental model when a goal fails.
+- The solver ensemble proves the nonlinear economics without the explicit arithmetic hint required by
+  Verus or the domain bound required by Kani.
+
+## Limitations
+
+- Account parsing, CPI, clock reads, and persistence remain trusted.
+- Foreign-type correctness depends on lane-owned axioms.
+- The byte-parser panic-freedom property covered by Kani is not proved here.
+- The transition guard is a syntax-level backstop for Creusot contracts, not a substitute for the
+  verifier.
+
+## Reproduce
+
+```sh
+just creusot version
+just creusot verify
+just creusot replay
+just solana test-client-rust ticketing creusot
+```
+
+Use `just creusot verify-ide` only for interactive diagnosis of an unproved goal.

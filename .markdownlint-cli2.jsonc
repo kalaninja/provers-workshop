@@ -1,0 +1,19 @@
+{
+  "globs": [
+    "README.md",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "docs/**/*.md"
+  ],
+  "config": {
+    "default": true,
+    "MD013": {
+      "line_length": 100,
+      "code_blocks": false,
+      "tables": false
+    },
+    "MD024": {
+      "siblings_only": true
+    }
+  }
+}

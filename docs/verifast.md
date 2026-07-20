@@ -1,113 +1,95 @@
 # VeriFast lane
 
-Lane 7 of [the prover roadmap](provers.md). Status: **wired up** - a real Pinocchio program plus a
-detached VeriFast proof of its decision cores. Facts are point-in-time; last reviewed 2026-07-19.
+| Field | Value |
+| --- | --- |
+| Lane | 7 |
+| Status | Implemented program plus detached verification model |
+| Pin | VeriFast `26.01`, Rust `nightly-2025-11-25` |
+| Verification | Symbolic execution with the built-in Redux prover |
+| Artifacts | None; every run re-verifies the detached model |
+| Last reviewed | 2026-07-19 |
 
-[VeriFast](https://github.com/verifast/verifast) is a separation-logic verifier for C, Java, and
-(experimentally) Rust. It drives `rustc +nightly-2025-11-25` to MIR and discharges contracts written
-in `//@` ghost comments by symbolic execution over its built-in Redux prover. In the Rust standard
-library campaign it handles the most pointer-intensive unsafe modules (`RawVec`, `LinkedList`,
-`BTreeNode`, `Vec`).
+[VeriFast](https://github.com/verifast/verifast) verifies C, Java, and experimental Rust with
+separation logic and symbolic execution. This lane tests a deliberate target-fit risk: the workshop's
+verified cores are safe, pure, and heap-free, so they do not exercise pointer ownership and
+separation.
 
-## The target-fit decision
+## Integration
 
-`provers.md` flagged this lane's open question: this repo's verified layer is safe, pure, loop-free
-decision logic, whereas separation logic's strengths are heap and pointer reasoning. The decision
-taken here is to **re-prove the same three decision cores as every other lane** (spec coverage >=
-Creusot), not to widen the workshop's scope to the trusted shells or the zero-copy `bytemuck` wire
-casts. Because the verified layer has no heap, VeriFast expresses the full functional contract
-without exercising separation logic at all - itself part of the finding.
+The lane has two related but distinct artifacts.
 
-## What is wired
+`ticketing-verifast` is a complete Pinocchio program over the shared interface. It contains the same
+instruction shells, runtime decisions, and SBF entrypoint as the other program crates, but no verifier
+annotations or dependencies.
 
-**The program.** `crates/ticketing/verifast` is a full Pinocchio program over the shared
-`ticketing-interface`, implementing the shared wire protocol and decisions: trusted `instructions/` shells
-+ dispatcher/`entrypoint!`, the `flows/` decision cores, and the `domain/` accounting/lifecycle logic
-(extension traits on the wire types). It carries no in-source spec layer and no verifier dependency,
-like the Aeneas lane. `just solana build ticketing verifast` emits `ticketing_verifast.so`, and the
-lane-agnostic client SBF suite passes against it (`just solana test-client-rust ticketing verifast`
-- 7/7, including the full create -> buy -> close lifecycle).
+`crates/ticketing/verifast/verification/model.rs` is a standalone VeriFast target outside the Cargo
+module tree. It transcribes `create_event`, `purchase`, and `close_event` into a self-contained scalar
+model with `//@ req` and `//@ ens` contracts plus `fix` predicates for invariants and frames.
 
-**The proof.** VeriFast verifies a self-contained model of the three cores in
-`crates/ticketing/verifast/verification/model.rs`: `create_event`, `purchase`, and `close_event`
-against `//@ req`/`//@ ens` contracts, plus the domain predicates they are written in
-(`event_invariant`, `is_legal_transition_from`, the frames, `event_is_initial`, the ticket
-predicates) as VeriFast `fix` fixpoints - the analog of Creusot's `#[logic]` functions.
-`just verifast verify` reports `0 errors found (143 statements verified)`; it re-verifies from source
-each run (no committed proof session to replay). The model file is a standalone VeriFast target
-outside the crate's module tree - `cargo` never compiles it.
+The split is required by the frontend. A compatibility spike compiled the full Cargo dependency graph
+with VeriFast's Rust toolchain but then failed with `No such struct: "ticketing_interface::Event"`:
+linked dependency metadata does not expose external struct definitions to the verifier. Re-declaring
+the complete wire graph as trusted `.rsspec` files would create a larger and less reviewable trusted
+surface than a detached decision model.
 
-## Why the proof is detached, not on the shipping cores
+## Verification coverage
 
-Every other lane verifies its shipping cores directly (cfg-gated specs on the real program). VeriFast
-cannot: its Rust frontend verifies a single crate and does not import type definitions from external
-dependencies. A spike pinned the shape of the wall - `cargo verifast` **compiled** the whole
-dependency graph (curve25519-dalek, bytemuck, solana-address, pinocchio, ticketing-interface) under
-VeriFast's rustc, but then reported `No such struct: "ticketing_interface::Event"`: the `--extern`
-rlibs are linked, yet the frontend has no view into their structs. Verifying the real cores would
-mean re-declaring the entire wire layer (`Event`/`Ticket`/`NonZeroU64`/`Address`/`AccountHeader`/
-`BoundedString` + const generics) as a trusted `.rsspec` - a large trusted surface with uncertain
-const-generic/`PhantomData` support. So the lane proves a **model intended to reproduce the cores'
-decision semantics** instead. This is the lane's headline cost, unique in the roster: the verified
-artifact is a model, not the shipping code, and model-to-program fidelity remains trusted (the
-shipping program is separately covered by the client SBF suite).
+The model proves the behavioral reference properties on the three top-level cores:
 
-## The model - findings
+- event invariant, no overselling, and bounded economics;
+- exact event-creation overflow discrimination and initial state;
+- exact purchase clamp, sold delta, payment, and ticket consistency;
+- legal close transition and exact frames;
+- on-error unchanged state.
 
-- **`unsafe fn` buys clean contracts.** VeriFast verifies a safe `fn` against its RustBelt semantic
-  type, which for a function returning a composite (`Result`/`Option`/struct) demands the
-  ownership-token ceremony (`thread_token`, `<T>.own`, and open/close of every returned value).
-  Marking the cores `unsafe fn` drops that ceremony, so the contracts read as pure `//@ req`/`//@ ens`
-  like the other lanes' `requires`/`ensures`. The bodies contain no unsafe operations; a file-level
-  `#![allow(unsafe_op_in_unsafe_fn)]` keeps the pre-2024 implicit-unsafe-body behavior rather than
-  wrapping semantically-empty `unsafe` blocks around internal calls.
-- **u64-modeled scalars, ranges carried by the invariant.** `NonZeroU64` is bridged to `u64` (as in
-  the Flux and Aeneas lanes), so `capacity`/`price_lamports` carry an explicit `1 <= x <= u64::MAX`
-  in `event_invariant`, and `sold` carries its `0 <=` lower bound - VeriFast does not range-constrain
-  the fields of a by-value struct on its own (the ownership predicate that would carry those bounds
-  is exactly what `unsafe fn` skips, so the invariant states them). `Address` is modeled by set-ness
-  (`!= 0`), `EventStatus` by a `u8` tag (0 = open, 1 = closed), `EventName` by an equality tag. The
-  wire header and reserved padding, irrelevant to the invariants, are dropped (as in the hax lane's
-  Lean model), so their frame clauses are omitted.
-- **One trusted axiom: the overflow-checked multiply.** `checked_mul_u64` is `assume_correct` (a
-  trusted body, VeriFast's `#[trusted]` analog) with the contract "None exactly on `u64` overflow,
-  else the product" - the direct analog of Creusot's `ax_checked_mul`. It is the model's only axiom
-  (hence the `-allow_assume` flag on the recipe); everything else is proved.
-- **Nonlinear arithmetic is manual, and proved.** VeriFast deliberately does not discharge nonlinear
-  multiplication automatically. `purchase` must show the payment cannot overflow -
-  `quantity * price <= capacity * price <= u64::MAX` - and that the product is non-negative; both
-  come from two hand-invoked `mul_mono_l` steps (the monotonicity lemma in `prelude_core.rsspec`).
-  With those, `payment = quantity * price` is a direct, proven-overflow-free multiply, so - unlike
-  Creusot's `checked_mul` in the same spot - the model's `purchase` needs no overflow branch. This
-  echoes the Kani lane's finding that the nonlinear bound is the real cost, but VeriFast proves it
-  unbounded (no `u8` capacity cap).
-- **Enums are friction.** `#[derive(Clone, Copy)]` on an enum trips the frontend ("Expressing shared
-  ownership of an enum value is not yet supported"), and matching an owned enum field partially moves
-  it; modeling `EventStatus` as a `u8` tag sidesteps both. There is no `#[derive]` in the model.
-  Other small syntax notes: `fix` predicates must `match` on a parameter (not a field), a boolean
-  fixpoint used as an assertion needs `== true`, and ghost `match` arms need named bindings. On the
-  plus side, struct update syntax (`Event { status: 1, ..event }`) verifies fine, and the model
-  needs no `verifast_options` directives: with every function carrying a contract and the arithmetic
-  proven overflow-free, neither `skip_specless_fns` nor `ignore_unwind_paths` has anything to do.
+The proof is unbounded. Nonlinear multiplication monotonicity is established manually with two
+`mul_mono_l` applications, so purchase needs no overflow branch after the event invariant is assumed.
 
-## Coverage vs Creusot
+The model does not separately define or verify the shipping leaf operations `payment_for`,
+`record_sale`, and `close_sales`; their behavior is represented directly in the top-level cores. The
+current verifier result is 143 statements verified with zero errors.
 
-The model proves full parity on the reference clauses: the event invariant (organizer set, no
-oversell, bounded economics), `create_event`'s `Ok <=> !overflow` discriminant and full `is_initial`,
-`purchase`'s exact clamp `min(requested, capacity - sold)`, the exact `sold` delta,
-`payment == quantity * price` (proved overflow-free), the ticket `is_initial` + `is_consistent_with`,
-the legal status transition and the frame conditions on both mutating cores, and on-error-unchanged.
-No clause is dropped.
+## Trusted surface
 
-Representational departures (not clause drops): the model's `&mut Event` cores are value-threading
-`fn`s returning the updated event (the backward-function shape Aeneas/hax also use); the wire
-header/reserved padding are not modeled; and - the load-bearing one - the proof is over a model, so
-it does not by itself certify the shipping cores. Their behavior parity rests on the model being a
-faithful transcription plus the client SBF suite exercising the deployed `.so`.
+The model has one explicit `assume_correct` function: `checked_mul_u64`, specified to return `None`
+exactly on `u64` overflow and otherwise the mathematical product. The recipe's `-allow_assume` flag
+is present solely for that axiom.
 
-## Transition guard
+Representational choices are also trusted correspondence decisions:
 
-`scripts/check-ticketing-transitions.sh` scans `crates/ticketing/creusot/src/flows` and matches the
-`#[cfg_attr(creusot, ensures(...))]` attribute shape, so it does not cover this lane. The
-`is_legal_transition_from` clause is present on both mutating cores of the model; it is simply not
-machine-checked by that guard here.
+- addresses and event names are scalar equality tags;
+- `NonZeroU64` values are positive `u64` values;
+- event status is a `u8` tag;
+- headers and reserved padding are omitted;
+- mutable cores return updated values rather than borrowing the shipping structs.
+
+Most importantly, the model is not mechanically linked to the shipping source. The shared SBF tests
+exercise both against the same protocol but cannot prove transcription fidelity.
+
+## Key findings
+
+- No separation logic is needed: the target decision layer has no heap or pointer ownership.
+- Marking model cores `unsafe fn` avoids RustBelt ownership-token ceremony for returned composite
+  values. The bodies contain no unsafe operation; this is a verifier modeling choice.
+- Nonlinear arithmetic is manual but fully proved and unbounded.
+- Enum ownership is immature in the Rust frontend. Modeling status as `u8` avoids unsupported shared
+  enum ownership and partial-move behavior.
+- The detached proof is compact and complete at the top-level contract boundary, but that convenience
+  introduces a substantial correspondence assumption.
+
+## Limitations
+
+- The proof does not certify the shipping core source directly.
+- Separate domain leaf functions are not verified as independent units.
+- Wire representation, account parsing, instruction shells, and model fidelity remain trusted.
+- The transition text guard covers only Creusot.
+- The lane exercises symbolic execution and arithmetic, not VeriFast's defining separation-logic
+  strengths.
+
+## Reproduce
+
+```sh
+just verifast version
+just verifast verify
+just solana test-client-rust ticketing verifast
+```

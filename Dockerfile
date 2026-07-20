@@ -86,13 +86,17 @@ FROM tooling-base AS node-tooling
 
 ENV NPM_CONFIG_CACHE=/workspace/.cache/npm
 
+COPY mise/config.node.toml ./mise/config.node.toml
+
 RUN --mount=type=secret,id=github_token \
     export GITHUB_TOKEN="$(cat /run/secrets/github_token 2>/dev/null || true)" \
-    && mise install node pnpm \
+    && mise install -E node node pnpm "npm:markdownlint-cli2" "github:lycheeverse/lychee" \
     && chmod -R a+rwX /opt/mise \
-    && mise exec node -- node --version \
-    && mise exec node -- npm --version \
-    && mise exec node pnpm -- pnpm --version
+    && MISE_ENV=node mise exec node -- node --version \
+    && MISE_ENV=node mise exec node -- npm --version \
+    && MISE_ENV=node mise exec node pnpm -- pnpm --version \
+    && MISE_ENV=node mise exec "npm:markdownlint-cli2" -- markdownlint-cli2 --version \
+    && MISE_ENV=node mise exec "github:lycheeverse/lychee" -- lychee --version
 
 FROM rust-tooling AS solana-tooling
 

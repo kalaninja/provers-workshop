@@ -28,6 +28,9 @@ mod verifast 'just/verifast.just'
 # Tooling commands
 mod tooling 'just/tooling.just'
 
+# Documentation quality commands
+mod docs 'just/docs.just'
+
 # Lists available recipes
 [default]
 list:

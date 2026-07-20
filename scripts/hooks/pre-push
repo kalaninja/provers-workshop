@@ -40,6 +40,7 @@ run() {
 }
 
 rust_changed=false
+docs_changed=false
 creusot_changed=false
 kani_changed=false
 verus_changed=false
@@ -49,6 +50,7 @@ hax_changed=false
 verifast_changed=false
 shared_tooling_changed=false
 
+has '^(README\.md|AGENTS\.md|CLAUDE\.md|docs/|\.markdownlint-cli2\.jsonc$|lychee\.toml$|Justfile$|just/docs\.just$|mise/config(\.node)?\.toml$)' && docs_changed=true
 has '^(crates/|clients/|idl/|Cargo\.toml|Cargo\.lock|rustfmt\.toml|clippy\.toml|mise/config(\.[a-z]+)?\.toml)' && rust_changed=true
 has '^(crates/ticketing/|mise/config\.creusot\.toml|just/creusot\.just|why3find\.json|verif/|docker/creusot\.Dockerfile$)' && creusot_changed=true
 has '^(crates/ticketing/kani/|mise/config\.kani\.toml|just/kani\.just|docker/kani\.Dockerfile$)' && kani_changed=true
@@ -60,6 +62,7 @@ has '^(crates/ticketing/verifast/|mise/config\.verifast\.toml|just/verifast\.jus
 has '^(Dockerfile$|just/common\.just$|just/tooling\.just$|scripts/docker/)' && shared_tooling_changed=true
 
 if $shared_tooling_changed; then
+  docs_changed=true
   rust_changed=true
   creusot_changed=true
   kani_changed=true
@@ -68,6 +71,10 @@ if $shared_tooling_changed; then
   aeneas_changed=true
   hax_changed=true
   verifast_changed=true
+fi
+
+if $docs_changed; then
+  run just docs check
 fi
 
 if $rust_changed; then

@@ -17,5 +17,6 @@ version: tooling::build-verifast
 # enables the lane's one trusted
 # axiom, the `assume_correct` overflow-checked multiply (Creusot's `ax_checked_mul` analog).
 # Re-verifies from source each run; no committed proof session to replay.
+# Verify the detached VeriFast decision-core model from source.
 verify: tooling::build-verifast
     {{ run }} verifast -allow_assume crates/ticketing/verifast/verification/model.rs
