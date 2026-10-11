@@ -5,6 +5,9 @@ complete [Pinocchio](https://github.com/anza-xyz/pinocchio) event-ticketing prog
 Each implemented lane preserves one wire protocol and one set of decision semantics, then expresses
 and verifies those decisions in the prover's native style.
 
+This project continues [Pinocchio Workshop](https://github.com/kalaninja/pinocchio-workshop),
+extending its Creusot-verified ticketing example into a comparison of seven Rust verification tools.
+
 The program is deliberately a workshop target, not production software. Its architecture is
 production-oriented—zero-copy accounts, canonical PDAs, checked state transitions, a generated IDL,
 and an SBF-tested client—but the committed program ID is not deployable and the code has not received
