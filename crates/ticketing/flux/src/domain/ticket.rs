@@ -15,11 +15,19 @@ use ticketing_interface::{
     fn(
         event: Address[@ev],
         buyer: Address[@b],
-        paid_lamports: NonZeroU64,
-        quantity: NonZeroU64,
-        bump: u8,
-        created_slot: u64,
-    ) -> Ticket[Ticket { event: ev, buyer: b }]
+        paid_lamports: NonZeroU64[@p],
+        quantity: NonZeroU64[@q],
+        bump: u8[@bp],
+        created_slot: u64[@slot],
+    ) -> Ticket[Ticket {
+        event: ev,
+        buyer: b,
+        quantity: q,
+        paid_lamports: p,
+        bump: bp,
+        created_slot: slot,
+        updated_slot: slot,
+    }]
     requires is_set(ev) && is_set(b)
 )]
 pub fn ticket_new(

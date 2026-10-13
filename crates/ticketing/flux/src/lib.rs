@@ -14,9 +14,8 @@
 //!   discharged by `just flux verify`.
 //! - `domain` - the refinement vocabulary (`flux_rs::defs!` logic + the
 //!   `extern_spec` registrations that refine the foreign wire types), the
-//!   verified typed mutators, and the trusted `nz_*`/ctor/lemma wrappers - the
-//!   residue of what Flux does not model at this rev (`NonZeroU64`, `Ord::min`,
-//!   the one nonlinear product).
+//!   verified typed mutators, and the trusted numeric/wire wrappers - the
+//!   boundary between the opaque wire/numeric models and checked arithmetic.
 //!
 //! `flux_rs` attributes strip to no-ops unless `cargo flux` is driving, so
 //! ordinary `cargo build` and `cargo build-sbf` expand the same source to the
@@ -27,6 +26,12 @@
 //! as under Kani.
 #![warn(missing_docs)]
 #![warn(rustdoc::broken_intra_doc_links)]
+#![cfg_attr(flux, feature(nonzero_internals))]
+#![cfg_attr(flux, allow(internal_features))]
+#![allow(
+    clippy::question_mark,
+    reason = "Pinned Flux lacks the Try::branch refinement needed to track Result through `?`."
+)]
 
 mod domain;
 mod flows;

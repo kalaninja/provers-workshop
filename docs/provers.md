@@ -64,7 +64,7 @@ operations are `payment_for`, `record_sale`, and `close_sales`.
 | Creusot | Full deductive proof | All cores and domain operations, unbounded | Imperative instruction shells remain trusted |
 | Kani | Bounded model checking | Core contracts plus dispatcher byte front; capacity bounded to `u8` | Proof is valid only inside the harness domain |
 | Verus | Full SMT proof | All cores and domain operations, unbounded | Dispatcher byte front remains trusted |
-| Flux | Refinement checking | Invariant, frames, no oversell, legal status steps, and exact payment | Exact clamp, result discriminants, on-error frames, and ticket consistency are not expressed |
+| Flux | Refinement checking | Reference flow properties over the field models: creation, exact quantity/payment, ticket consistency, close status, and error frames; strict overflow checks | Wire constructors, accessors, setters, and numeric bridges remain trusted; total payment helper requires quantity within capacity |
 | Aeneas | Generated model plus Lean proof | All cores and domain operations at reference coverage, unbounded | Wire types and glue are modeled through trusted specifications |
 | hax | Generated Lean plus inline Hoare proofs | All cores and domain operations, unbounded | Clamp is proved by upper bounds rather than exact `min` |
 | VeriFast | Detached symbolic model | Three top-level cores at reference behavioral coverage, unbounded | Shipping cores and separate leaf operations are not verified directly |
@@ -80,7 +80,7 @@ In particular, passing the suite does not close VeriFast's model-to-program corr
 | Creusot | Instruction shells and foreign-type axioms | 23 committed Why3 sessions; deterministic replay |
 | Kani | Code outside the harness reachability graph | No proof object; re-verifies from source |
 | Verus | Instruction shells, foreign registrations, `Address`, and two `NonZero` wrappers | No proof object; re-verifies from source |
-| Flux | Opaque wire accessors, constructors, `NonZero` bridges, and arithmetic helpers | No proof object; re-verifies from source |
+| Flux | Opaque wire accessors, setters, constructors, and `NonZero` bridges | No proof object; re-verifies from source |
 | Aeneas | Opaque wire model and field-level glue specifications | Committed generated Lean plus hand-written proofs; deterministic replay |
 | hax | Committed foreign-type model and asserted `lean::replace` mappings | Inline proofs and model preamble; extraction regenerated on each run |
 | VeriFast | One checked-multiply axiom and detached-model fidelity | No proof object; re-verifies the detached source model |
@@ -113,6 +113,12 @@ Linux 7.0.0-28 x86_64, Docker 29.6.2, and `linux/amd64` tooling images.
 | Aeneas | 11.59 s [11.10-20.16] | 9.40 s [9.09-9.86] | Generated model plus hand-written Lean proofs |
 | hax | 24.39 s [24.03-27.32] | Not available | Inline proofs plus model preamble |
 | VeriFast | 0.62 s [0.59-0.96] | Not available | 143 statements verified |
+
+The Flux check was strengthened on 2026-10-13: standard-library specifications and expanded field
+models now support the reference flow properties, including creation and ticket consistency.
+Strict overflow checking is enabled, and lane-owned trusted arithmetic helpers were removed.
+The current result is nine checked functions, 15 trusted items, and 123 solved constraints.
+The July timing above describes the earlier 58-constraint version; no new timing series was taken.
 
 ## Tool and backend map
 
@@ -178,10 +184,12 @@ integration wall is the pinned `vstd` model for `NonZeroU64`.
 
 ### Flux
 
-Flux carries the event invariant on the refined type and checks the safety core with very little
-annotation. Opaque foreign wire types and unavailable downstream standard-library refinements move
-substantial behavior into trusted accessors and arithmetic helpers, and several exact functional
-clauses cannot be stated.
+Flux carries the event invariant on the refined type. Standard-library models and explicit `Result`
+branches support success conditions and unchanged state on errors. Expanded `NonZero`, event, and
+ticket models support exact creation fields, sale quantity, payment, and ticket consistency.
+The pinned solver proves the arithmetic with strict overflow checks and no lane-owned arithmetic
+axioms. Wire constructors, accessors, setters, and numeric bridges remain trusted: coverage now
+matches the reference flow properties at the model level, with a larger trusted boundary.
 
 ### Aeneas
 

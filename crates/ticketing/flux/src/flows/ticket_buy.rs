@@ -18,18 +18,37 @@ use crate::domain::{
 /// Purchase for a buyer: validate the organizer, record the clamped sale, price
 /// it, and build the buyer's ticket. Returns the payment (for the shell's
 /// transfer CPI) and the ticket to persist.
+/// A successful purchase increases `sold` by `min(requested, capacity -
+/// old_sold)`. The ticket records that quantity and its exact payment, which
+/// is also returned to the shell. Errors leave the modeled event unchanged.
 #[flux_rs::sig(
     fn(
         event: &mut Event[@e],
-        organizer: &Address,
+        organizer: &Address[@o],
         event_addr: &Address[@ea],
         buyer: &Address[@b],
-        requested: NonZeroU64,
-        bump: u8,
-        created_slot: u64,
-    ) -> Result<(NonZeroU64, Ticket), ProgramError>
+        requested: NonZeroU64[@r],
+        bump: u8[@bp],
+        created_slot: u64[@slot],
+    ) -> Result<(
+        NonZeroU64[int_min(r, e.capacity - e.sold) * e.price],
+        Ticket[Ticket {
+            event: ea,
+            buyer: b,
+            quantity: int_min(r, e.capacity - e.sold),
+            paid_lamports: int_min(r, e.capacity - e.sold) * e.price,
+            bump: bp,
+            created_slot: slot,
+            updated_slot: slot,
+        }],
+    ), ProgramError>[e.organizer == o && !e.closed && e.sold < e.capacity]
     requires is_set(ea) && is_set(b)
-    ensures event: Event{new: same_except_sold(e, new) && new.sold >= e.sold}
+    ensures event: Event{new:
+        same_except_sold(e, new) && new.sold >= e.sold
+            && ((e.organizer != o || e.closed || e.sold == e.capacity) => new == e)
+            && ((e.organizer == o && !e.closed && e.sold < e.capacity)
+                => new.sold == e.sold + int_min(r, e.capacity - e.sold))
+    }
 )]
 pub fn purchase(
     event: &mut Event,
@@ -40,8 +59,13 @@ pub fn purchase(
     bump: u8,
     created_slot: u64,
 ) -> Result<(NonZeroU64, Ticket), ProgramError> {
-    validate_organizer(event, organizer)?;
-    let actual = record_sale(event, requested)?;
+    if let Err(err) = validate_organizer(event, organizer) {
+        return Err(err);
+    }
+    let actual = match record_sale(event, requested) {
+        Ok(actual) => actual,
+        Err(err) => return Err(err),
+    };
     let payment = nz_from(payment_for(event, actual));
     let ticket = ticket_new(*event_addr, *buyer, payment, nz_from(actual), bump, created_slot);
     Ok((payment, ticket))

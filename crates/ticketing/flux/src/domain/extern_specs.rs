@@ -1,36 +1,30 @@
-//! Flux refinement vocabulary + the trusted shims for what Flux does not model
-//! at this rev.
+//! Flux refinement vocabulary and the lane's trusted foreign-type boundary.
 //!
 //! Two layers, split by build visibility:
 //!
 //! - the verification-only surface - the `flux_rs::defs!` logic block and the
 //!   `#[extern_spec]` registrations that refine the foreign wire types - is
 //!   `#[cfg(flux)]`-gated and vanishes from ordinary/SBF builds;
-//! - the trusted exec shims (the `Event`/`Ticket` field accessors, the
-//!   `NonZeroU64` <-> `u64` bridges, and the one nonlinear `mul_le_mono` lemma)
-//!   ship in every build; their `#[flux_rs::sig]` clauses erase outside `cargo
+//! - the executable accessors, setters, constructors, and numeric bridges ship
+//!   in every build; their `#[flux_rs::sig]` clauses erase outside `cargo
 //!   flux`.
 //!
-//! Modeling choices forced by Flux at this rev (each an honest trusted-surface
-//! cost, larger than Verus's):
+//! Modeling choices and their trusted-surface cost:
 //!
-//! - `Event`/`Ticket` are **opaque** (the `core::alloc::Layout` pattern): the
-//!   state invariant rides on the type via `#[invariant]`, but Flux cannot see
-//!   through a foreign struct whose fields include padding (`Reserved<N>`) and
-//!   a self-referential header (`AccountHeader<Event>`, a recursive sort). So
-//!   the cores read/write state through the trusted accessors below.
-//! - `NonZeroU64` is **not** modeled. Its `core::num::NonZero<T>` carrier is
-//!   generic over the sealed, unstable `ZeroablePrimitive`, and Flux cannot
-//!   refine a generic type parameter by an `int` value; so `NonZero` values are
-//!   bridged to refined `u64` through the trusted `nz_get`/`nz_from` shims and
-//!   all accounting arithmetic runs on `u64` (where Flux is precise). The cost:
-//!   the exact `min(requested, remaining)` quantity is not surfaced (only that
-//!   the sale is clamped within remaining capacity and priced without
-//!   overflow).
-//! - Flux's `Result`/`Option` refinements are not visible to a downstream crate
-//!   here, so the cores refine their `Ok` payload type rather than the `Result`
-//!   discriminant; "on error, unchanged" and the exact `Ok <=> cond`
-//!   characterization are dropped.
+//! - `Event`/`Ticket` use opaque models to avoid expanding recursive wire
+//!   headers and padding into the refinement types. Constructors and field
+//!   access remain trusted. Event frames include opaque identities for the
+//!   header, name, and reserved bytes; those identities do not verify the
+//!   helper bodies or their correspondence to account bytes.
+//! - The standard-library specifications supply no numeric `NonZero` model at
+//!   this pin. Our opaque model indexes `NonZero<T>` by an integer value;
+//!   trusted `nz_get`/`nz_from` preserve that value across the `u64` boundary.
+//!   The exact sale quantity is checked using this assumed correspondence.
+//!   Naming the sealed `ZeroablePrimitive` bound needs `nonzero_internals`,
+//!   enabled only for verification.
+//! - Standard-library refinements for `Result`/`Option` and checked arithmetic
+//!   are loaded by `just flux verify` with `-Fstd-extern-specs=on`. Arithmetic
+//!   checks use strict overflow mode and no lane-owned arithmetic axioms.
 use core::num::NonZeroU64;
 
 use pinocchio::Address;
@@ -41,6 +35,10 @@ use ticketing_interface::{Event, EventStatus};
 
 #[cfg(flux)]
 flux_rs::defs! {
+    fn int_min(a: int, b: int) -> int {
+        if a <= b { a } else { b }
+    }
+
     // Uninterpreted "address is set" (not the all-zero default) - the analog of
     // Verus's opaque `is_set`.
     fn is_set(a: int) -> bool;
@@ -57,6 +55,9 @@ flux_rs::defs! {
             && new.updated_slot == old.updated_slot
             && new.capacity == old.capacity
             && new.price == old.price
+            && new.name == old.name
+            && new.header == old.header
+            && new.reserved == old.reserved
             && new.bump == old.bump
             && new.closed == old.closed
     }
@@ -68,6 +69,9 @@ flux_rs::defs! {
             && new.updated_slot == old.updated_slot
             && new.capacity == old.capacity
             && new.price == old.price
+            && new.name == old.name
+            && new.header == old.header
+            && new.reserved == old.reserved
             && new.sold == old.sold
             && new.bump == old.bump
     }
@@ -89,8 +93,17 @@ impl PartialEq for Address {
     fn eq(&self, other: &Address) -> bool;
 }
 
-/// `Event`, opaque, refined by its accounting-relevant fields. The three
-/// invariants ride on the type, so `event_invariant` never needs threading
+/// An opaque identity for the complete bounded string, including its unused
+/// bytes.
+#[cfg(flux)]
+#[flux_rs::extern_spec(ticketing_interface::wire)]
+#[refined_by(id: int)]
+#[opaque]
+struct BoundedString<const N: usize>;
+
+/// `Event`, opaque, refined by every field. Header, name, and reserved bytes
+/// use opaque identities; their correspondence to Rust values is trusted.
+/// The invariants ride on the type, so `event_invariant` never needs threading
 /// through a `requires` clause - every `Event` value carries it by
 /// construction.
 #[cfg(flux)]
@@ -102,6 +115,9 @@ impl PartialEq for Address {
     capacity: int,
     price: int,
     sold: int,
+    name: int,
+    header: int,
+    reserved: int,
     bump: int,
     closed: bool,
 )]
@@ -114,22 +130,37 @@ impl PartialEq for Address {
 #[opaque]
 struct Event;
 
-/// `Ticket`, opaque, refined by the addresses its invariant constrains.
+/// `Ticket`, opaque, refined by its purchase fields.
 #[cfg(flux)]
 #[flux_rs::extern_spec(ticketing_interface)]
-#[refined_by(event: int, buyer: int)]
+#[refined_by(
+    event: int,
+    buyer: int,
+    quantity: int,
+    paid_lamports: int,
+    bump: int,
+    created_slot: int,
+    updated_slot: int,
+)]
 #[invariant(is_set(event))]
 #[invariant(is_set(buyer))]
 #[opaque]
 struct Ticket;
 
+/// Opaque numeric model; the trusted `u64` bridges below preserve its value.
+#[cfg(flux)]
+#[flux_rs::extern_spec(core::num)]
+#[refined_by(value: int)]
+#[opaque]
+struct NonZero<T: core::num::ZeroablePrimitive>;
+
 // --- trusted exec shims: bodies ship, `#[flux_rs::sig]` clauses erase off-flux
 // --------------
 
-/// `NonZeroU64` -> its `u64` value (always positive). The bridge into the
-/// refined `u64` world where Flux reasons precisely.
+/// `NonZeroU64` -> the same positive numeric value. This correspondence with
+/// the opaque model is trusted; callers use it to prove exact quantities.
 #[flux_rs::trusted]
-#[flux_rs::sig(fn(x: NonZeroU64) -> u64{v: v > 0})]
+#[flux_rs::sig(fn(x: NonZeroU64[@n]) -> u64{v: v == n && v > 0})]
 pub fn nz_get(x: NonZeroU64) -> u64 {
     x.get()
 }
@@ -137,7 +168,7 @@ pub fn nz_get(x: NonZeroU64) -> u64 {
 /// A positive `u64` -> `NonZeroU64`. The `None` arm is dead under the `v > 0`
 /// precondition (no panic, no `unwrap`).
 #[flux_rs::trusted]
-#[flux_rs::sig(fn(v: u64{v > 0}) -> NonZeroU64)]
+#[flux_rs::sig(fn(v: u64[@n]) -> NonZeroU64[n] requires n > 0)]
 pub fn nz_from(v: u64) -> NonZeroU64 {
     match NonZeroU64::new(v) {
         Some(n) => n,
@@ -145,26 +176,8 @@ pub fn nz_from(v: u64) -> NonZeroU64 {
     }
 }
 
-/// The one nonlinear fact this lane needs: monotonicity of `*`. From `a <= b`
-/// and `b * c <= u64::MAX`, conclude `a * c <= u64::MAX`. Verus discharges the
-/// analog with `by(nonlinear_arith)`; here it is a trusted lemma - the honest
-/// nonlinear entry in the trusted-surface column. A no-op at runtime.
-#[flux_rs::trusted]
-#[flux_rs::sig(fn(a: u64, b: u64, c: u64) requires a <= b && b * c <= u64::MAX ensures a * c <= u64::MAX)]
-pub fn mul_le_mono(_a: u64, _b: u64, _c: u64) {}
-
-/// Positivity of `*`: a product of positives is positive (so `quantity * price`
-/// yields a `NonZeroU64` payment). Trusted, like [`mul_le_mono`]; a no-op at
-/// runtime.
-#[flux_rs::trusted]
-#[flux_rs::sig(fn(a: u64, b: u64) requires 0 < a && 0 < b ensures 0 < a * b)]
-pub fn mul_pos(_a: u64, _b: u64) {}
-
-/// Whether `a * b` fits in `u64` - the overflow guard for `event_create`. Flux
-/// does not carry `u64::checked_mul`'s spec into this crate, so the check that
-/// relates the boolean result to the `a * b <= u64::MAX` bound is trusted (the
-/// bound the event invariant then carries for the account's whole life).
-#[flux_rs::trusted]
+/// Whether `a * b` fits in `u64` - the overflow guard for `event_create`.
+/// Checked against the standard-library `checked_mul` and `Option` models.
 #[flux_rs::sig(fn(a: u64, b: u64) -> bool[a * b <= u64::MAX])]
 pub fn mul_fits(a: u64, b: u64) -> bool {
     a.checked_mul(b).is_some()

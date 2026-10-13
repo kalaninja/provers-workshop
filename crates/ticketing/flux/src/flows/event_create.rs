@@ -11,24 +11,27 @@ use crate::domain::{
 
 /// Creates an event, rejecting economics whose worst-case payment (`capacity *
 /// price_lamports`) would overflow `u64` - the bound the event invariant then
-/// carries for the account's whole life. On success the event is initial
-/// (zeroed counter, pinned slots/organizer/bump, sales open).
+/// carries for the account's whole life. Success pins the initial fields,
+/// including capacity, price, and name; failure means the product overflows.
 #[flux_rs::sig(
     fn(
         organizer: Address[@o],
-        capacity: NonZeroU64,
-        price_lamports: NonZeroU64,
-        name: EventName,
+        capacity: NonZeroU64[@c],
+        price_lamports: NonZeroU64[@p],
+        name: EventName[@n],
         bump: u8[@b],
         created_slot: u64[@slot],
     ) -> Result<Event{v:
         v.organizer == o
+            && v.capacity == c
+            && v.price == p
+            && v.name == n
             && v.created_slot == slot
             && v.updated_slot == slot
             && v.sold == 0
             && v.bump == b
             && !v.closed
-    }, ProgramError>
+    }, ProgramError>[c * p <= u64::MAX]
     requires is_set(o)
 )]
 pub fn create_event(

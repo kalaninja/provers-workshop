@@ -15,4 +15,4 @@ version: tooling::build-flux
 # pinned nightly in a dedicated, non-incremental profile.
 # Refinement-check the Flux decision cores and domain operations
 verify: tooling::build-flux
-    {{ run }} cargo flux -p ticketing-flux
+    {{ run }} env FLUXFLAGS="-Fstd-extern-specs=on -Fcheck-overflow=strict -Ldependency=/opt/flux" cargo flux -p ticketing-flux

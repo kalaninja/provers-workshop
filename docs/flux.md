@@ -7,7 +7,7 @@
 | Pin | Flux `1d986760`, Rust `nightly-2025-11-25`, Z3 `4.16.0` |
 | Verification | Refinement checking through liquid-fixpoint and Z3 |
 | Artifacts | None; every run re-verifies from source |
-| Last reviewed | 2026-07-19 |
+| Last reviewed | 2026-10-13 |
 
 [Flux](https://github.com/flux-rs/flux) expresses program properties as refined types and relies on
 liquid inference rather than explicit proof blocks. This lane tests the ergonomic benefit of carrying
@@ -22,45 +22,68 @@ and a domain layer containing verified operations plus the foreign-type adapters
 `flux_rs` attribute dependency is unconditional because Cargo resolves target dependency tables before
 the per-package Flux cfg is active; its attributes become no-ops in ordinary and SBF builds.
 
+`just flux verify` enables `-Fstd-extern-specs=on` inside the container. Flux's standard-library
+specifications are opt-in at this pin; without the flag, `Result`/`Option` refinements and checked
+arithmetic specifications are not loaded automatically.
+The command also adds `/opt/flux` to the dependency search path for those precompiled libraries
+and enables `-Fcheck-overflow=strict` to check integer overflow and underflow.
+At this pin, `?` loses the `Result` discriminant refinement because `Try::branch` has no matching
+specification. The checked sale and close functions use explicit `Result` branches instead.
+
 The driver is built from the pinned Git revision. Z3 and liquid-fixpoint are separate mise-managed
 tools; liquid-fixpoint's prebuilt binary is available only from its mutable `nightly` release tag, the
 lane's one intentionally non-immutable external asset.
 
 ## Verification coverage
 
-Flux checks eight functions, recognizes 18 trusted items, and solves 58 constraints. It establishes:
+Flux checks nine functions, recognizes 15 trusted items, and solves 123 constraints. It establishes:
 
 - the event invariant as a type invariant;
-- no overselling and monotonic `sold` updates;
-- exact state frames and legal status transitions;
-- bounded, positive, exact payment products;
-- the load-bearing event-creation economics guard.
+- event creation succeeds exactly when `capacity * price` fits in `u64`, and pins the initial
+  organizer, capacity, price, name, counter, status, bump, and slots;
+- no overselling and exact sale quantity and `sold` increment:
+  `min(requested, capacity - old_sold)`;
+- exact frames over every modeled event field, including identities for the header, name, and
+  reserved bytes;
+- exact success conditions for sale and close operations, including their organizer checks;
+- a closed status after successful `close_sales` or `close_event`;
+- unchanged modeled event state on errors from sale and close operations;
+- exact positive payment products without overflow;
+- purchase consistency: the returned payment and ticket's payment both equal quantity times price,
+  ticket quantity equals the counter increment, and the ticket pins its event, buyer, bump, and slots.
 
-`payment_for` is total and returns a refined `u64`: the event invariant makes its overflow branch dead,
-while a `Result` discriminant cannot be refined through the downstream standard-library type at this
-pin.
+These cover the reference flow properties at the model level. They do not give the same proof
+boundary as Creusot: the Flux wire constructors and field access remain trusted.
 
-The lane does not express the exact sale clamp, exact result discriminants, on-error unchanged state,
-or full ticket consistency. Those are disclosed coverage gaps rather than silently weakened claims.
+`payment_for` is total under `0 < quantity <= capacity`, using the event invariant to prove the
+product fits. The reference helper accepts arbitrary positive quantities and reports overflow through
+`Result`; the Flux helper's narrower precondition covers every quantity reachable from `purchase`.
+Neither this lane's flow contracts nor the reference flow contracts specify concrete `ProgramError`
+variants; they specify success and failure conditions.
 
 ## Trusted surface
 
-Two foreign-type limits shape the lane.
+`Event` and `Ticket` use opaque models to avoid expanding the wire types' recursive account headers
+and padding into refinement types. Flux checks the cores against these models but trusts the bodies
+of their constructors, accessors, and setters. Creusot checks those field constructions and updates.
+This is the remaining integration boundary, not evidence that Flux cannot express ticket consistency.
 
-First, `Event` and `Ticket` cannot be registered transparently. Every external field needs a refinement
-index, while the wire structs contain reserved padding and a self-referential `AccountHeader<Event>`.
-The resulting recursive sort forces opaque models and a trusted accessor, setter, and constructor
-layer.
+The event model now includes every field. Header and reserved bytes have opaque identities, and an
+opaque `BoundedString` model supplies the event-name identity. Equality in the frame predicates means
+those identities stay unchanged. Their correspondence to the complete Rust field values is assumed;
+adding them strengthens the trusted helpers' specifications rather than proving their bodies.
+The same distinction applies to the expanded ticket-constructor specification.
 
-Second, `NonZeroU64` cannot carry an integer refinement through its sealed generic standard-library
-type, and Flux's own `core` refinements are not visible to this downstream crate. Accounting therefore
-crosses trusted `nz_get` and `nz_from` bridges. The following arithmetic facts are also trusted:
+The pinned standard-library specifications supply no numeric model for `NonZero<T>`.
+The lane registers an opaque model indexed by an integer value. Its trusted `nz_get` and `nz_from`
+bridges preserve that value, allowing callers to prove exact quantities and payments.
+The generic type's sealed bound requires `nonzero_internals`, enabled only under `cfg(flux)`.
+Creusot also trusts its `NonZero` wrappers; this is not a Flux-only gap.
 
-- `mul_fits` relates checked multiplication to the mathematical product bound;
-- `mul_le_mono` carries the event bound to a smaller purchased quantity;
-- `mul_pos` establishes payment positivity.
-
-The exact product itself is still stated and checked in the refined `payment_for` signature.
+There are no lane-owned trusted arithmetic lemmas. Flux proves the smaller-purchase bound and
+positivity directly in `payment_for`, with strict overflow checking enabled. The `mul_fits` adapter
+is checked against the standard-library models of `checked_mul` and `Option::is_some`; the library
+implementations themselves remain outside this crate's proof.
 
 ## Key findings
 
@@ -74,13 +97,28 @@ The exact product itself is still stated and checked in the refined `payment_for
   editor loop.
 - Removing the sale clamp makes the trusted setter's `v <= capacity` precondition unprovable, providing
   a direct non-vacuity mutation test.
+- On 2026-10-13, enabling standard-library specifications and replacing `?` with explicit branches
+  made the error frames provable without changing the pinned Flux revision. A temporary mutation
+  that incremented `sold` before returning an error preserved the old bounds but failed the new
+  unchanged-state clause. The original source was restored and the full check passed.
+- The same day's `NonZero` model check proved the exact sale result and counter increment in
+  `record_sale` and `purchase`. Returning one ticket instead of the clamped request preserved the
+  earlier safety bounds but failed the new exact-quantity clauses. The correct source passed again.
+- The coverage comparison also exposed omitted clauses rather than prover failures: creation fields
+  and success equivalence, returned ticket/payment consistency, and the successful close status all
+  checked after strengthening their specifications. Temporary mutations to the ticket quantity,
+  returned payment, creation fields, close status, and overflow guard were rejected. The correct
+  source passed again.
+- The same audit removed `trusted` from `mul_fits`, deleted the unnecessary `mul_le_mono` and `mul_pos`
+  helpers, and enabled strict overflow checking. The arithmetic is proved by the existing pinned
+  toolchain; no Flux upgrade or new trusted function was needed.
 
 ## Limitations
 
-- Exact clamp equality, result-discriminant equivalence, on-error frames, and ticket consistency are
-  not modeled.
-- Arithmetic-overflow checking is not enabled as a Flux compiler option; explicit bounds carry the
-  relevant safety properties instead.
+- Wire constructors, accessors, setters, and numeric bridges remain trusted, including their
+  correspondence to the field models. Contract coverage does not imply equality of trusted surfaces.
+- The total `payment_for` helper is specified only for quantities within capacity.
+- Concrete `ProgramError` variants are not specified.
 - The dispatcher byte front and transition text guard remain outside this lane.
 - The mutable liquid-fixpoint `nightly` asset weakens otherwise commit-pinned tooling reproducibility.
 

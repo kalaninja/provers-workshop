@@ -3,10 +3,10 @@
 //! other lanes' `EventOps`; refinement signatures erase from ordinary/SBF
 //! builds.
 //!
-//! Accounting runs on `u64` (Flux models no `NonZeroU64`): the cores read the
-//! event's fields as refined `u64` through the trusted accessors, so the clamp,
-//! overflow, and no-oversell reasoning is machine-checked; `NonZeroU64` values
-//! are re-materialized at the wire boundary via [`nz_from`].
+//! Accounting runs on `u64`: the cores read the event's fields through trusted
+//! accessors and preserve `NonZeroU64` values through an opaque model. The
+//! clamp, overflow, and no-oversell reasoning is machine-checked; `NonZeroU64`
+//! values are re-materialized at the wire boundary via [`nz_from`].
 use core::num::NonZeroU64;
 
 use pinocchio::{Address, error::ProgramError};
@@ -16,8 +16,8 @@ use ticketing_interface::{
 };
 
 use crate::domain::extern_specs::{
-    get_capacity, get_price, get_sold, is_open, mul_le_mono, mul_pos, nz_from, nz_get,
-    organizer_eq, set_sold, set_status_closed,
+    get_capacity, get_price, get_sold, is_open, nz_from, nz_get, organizer_eq, set_sold,
+    set_status_closed,
 };
 
 /// Builds a fresh sales-open event with a zeroed counter - the base case for
@@ -33,19 +33,20 @@ use crate::domain::extern_specs::{
         organizer: Address[@o],
         capacity: u64[@c],
         price_lamports: u64[@p],
-        name: EventName,
+        name: EventName[@n],
         bump: u8[@b],
         created_slot: u64[@slot],
-    ) -> Event[Event {
-        organizer: o,
-        created_slot: slot,
-        updated_slot: slot,
-        capacity: c,
-        price: p,
-        sold: 0,
-        bump: b,
-        closed: false,
-    }]
+    ) -> Event{v:
+        v.organizer == o
+            && v.created_slot == slot
+            && v.updated_slot == slot
+            && v.capacity == c
+            && v.price == p
+            && v.sold == 0
+            && v.name == n
+            && v.bump == b
+            && !v.closed
+    }
     requires is_set(o) && 0 < c && 0 < p && c * p <= u64::MAX
 )]
 pub fn event_new(
@@ -72,26 +73,36 @@ pub fn event_new(
 }
 
 /// Returns `Ok` when the supplied authority is this event's organizer.
+#[flux_rs::sig(fn(e: &Event[@ev], organizer: &Address[@o]) -> Result<(), ProgramError>[ev.organizer == o])]
 pub fn validate_organizer(e: &Event, organizer: &Address) -> Result<(), ProgramError> {
     if organizer_eq(e, organizer) { Ok(()) } else { Err(ProgramError::InvalidAccountData) }
 }
 
 /// Returns `Ok` when this event's ticket sales are open.
+#[flux_rs::sig(fn(e: &Event[@ev]) -> Result<(), ProgramError>[!ev.closed])]
 pub fn require_sales_open(e: &Event) -> Result<(), ProgramError> {
     if is_open(e) { Ok(()) } else { Err(ProgramError::InvalidAccountData) }
 }
 
 /// Records a ticket sale, clamping `requested` to remaining capacity and
 /// returning the quantity actually sold. Only `sold` changes and it never
-/// exceeds capacity (proven: the returned quantity fits in the remaining
-/// headroom); `sold` is monotone and the other fields are pinned.
+/// exceeds capacity. Both the result and the increment of `sold` equal
+/// `min(requested, capacity - old_sold)`; the other modeled fields are pinned.
+/// Errors leave the modeled event unchanged.
 #[flux_rs::sig(
-    fn(event: &mut Event[@e], requested: NonZeroU64)
-        -> Result<u64{a: 0 < a && a <= e.capacity - e.sold}, ProgramError>
-    ensures event: Event{new: same_except_sold(e, new) && new.sold >= e.sold}
+    fn(event: &mut Event[@e], requested: NonZeroU64[@r])
+        -> Result<u64{a: a == int_min(r, e.capacity - e.sold) && 0 < a && a <= e.capacity - e.sold}, ProgramError>[!e.closed && e.sold < e.capacity]
+    ensures event: Event{new:
+        same_except_sold(e, new) && new.sold >= e.sold
+            && ((e.closed || e.sold == e.capacity) => new == e)
+            && ((!e.closed && e.sold < e.capacity)
+                => new.sold == e.sold + int_min(r, e.capacity - e.sold))
+    }
 )]
 pub fn record_sale(event: &mut Event, requested: NonZeroU64) -> Result<u64, ProgramError> {
-    require_sales_open(event)?;
+    if let Err(err) = require_sales_open(event) {
+        return Err(err);
+    }
 
     let cap = get_capacity(event);
     let sold = get_sold(event);
@@ -114,27 +125,30 @@ pub fn record_sale(event: &mut Event, requested: NonZeroU64) -> Result<u64, Prog
 /// price. Total, not fallible: the clamp guarantees `quantity <= capacity`, so
 /// the product neither overflows (`capacity * price <= u64::MAX` is the event
 /// invariant) nor is zero (both factors are positive). The signature states the
-/// exact product `quantity * price`; its fit in `u64` and its positivity ride
-/// the trusted `mul_le_mono`/`mul_pos` lemmas (flux-core's std specs are not
-/// visible downstream), so no error case survives.
+/// exact product `quantity * price`; Flux proves its bound and positivity.
 #[flux_rs::sig(
     fn(e: &Event[@ev], quantity: u64[@q]) -> u64{p: p == q * ev.price && 0 < p}
     requires 0 < q && q <= ev.capacity
 )]
 pub fn payment_for(e: &Event, quantity: u64) -> u64 {
     let price = get_price(e);
-    mul_le_mono(quantity, get_capacity(e), price);
-    mul_pos(quantity, price);
     quantity * price
 }
 
 /// Closes ticket sales. Only `status` changes; `open -> closed`.
+/// Errors leave the modeled event unchanged.
 #[flux_rs::sig(
-    fn(event: &mut Event[@e]) -> Result<(), ProgramError>
-    ensures event: Event{new: same_except_status(e, new) && legal_status(e.closed, new.closed)}
+    fn(event: &mut Event[@e]) -> Result<(), ProgramError>[!e.closed]
+    ensures event: Event{new:
+        same_except_status(e, new) && legal_status(e.closed, new.closed)
+            && new.closed
+            && (e.closed => new == e)
+    }
 )]
 pub fn close_sales(event: &mut Event) -> Result<(), ProgramError> {
-    require_sales_open(event)?;
+    if let Err(err) = require_sales_open(event) {
+        return Err(err);
+    }
     set_status_closed(event);
     Ok(())
 }
