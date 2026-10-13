@@ -25,8 +25,8 @@ use crate::domain::{
 /// The contract is the embedded Lean Hoare triple `purchase_spec` below: from
 /// the event invariant and set event/buyer addresses, the invariant is
 /// preserved, only `sold` moves (every other field pinned) and it grows by
-/// exactly the ticket's clamped quantity (positive, bounded by the request and
-/// the remaining capacity), the ticket carries its invariant and pins the
+/// exactly the ticket's clamped quantity (the positive minimum of the request
+/// and remaining capacity), the ticket carries its invariant and pins the
 /// buyer/event/payment/bump/slots, the payment is `quantity * price` (positive,
 /// no overflow), and on error the event is unchanged. Mirrors the Creusot
 /// lane's `purchase` coverage.
@@ -79,6 +79,9 @@ theorem purchase_spec
          ≤ (core_models.num.nonzero.nzVal requested).toNat ∧
        (core_models.num.nonzero.nzVal ticket.quantity).toNat
          ≤ event.capacity.toNat - event.sold.toNat ∧
+       (core_models.num.nonzero.nzVal ticket.quantity).toNat
+         = min (core_models.num.nonzero.nzVal requested).toNat
+           (event.capacity.toNat - event.sold.toNat) ∧
        ev'.sold.toNat
          = event.sold.toNat + (core_models.num.nonzero.nzVal ticket.quantity).toNat ∧
        (core_models.num.nonzero.nzVal payment).toNat

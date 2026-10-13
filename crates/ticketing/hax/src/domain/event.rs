@@ -4,8 +4,8 @@
 //! State is read and written only through [`crate::domain::glue`] (opaque), so
 //! all the reasoning here - the clamp, the no-underflow/no-overflow arithmetic,
 //! no overselling, the status step - runs on `u64` and enums that Lean models
-//! precisely. Like the Aeneas lane and unlike Flux, the nonlinear `capacity *
-//! price` bound and the pricing product are *proved*, not trusted.
+//! precisely. The nonlinear `capacity * price` bound and the pricing product
+//! are proved over those models.
 //!
 //! Control flow is deliberately `?`-free: each `?` extracts through the
 //! `Try`/`ControlFlow` trait machinery and buries the Lean model under
@@ -47,6 +47,8 @@ theorem record_sale_spec (event : ticketing_interface.state.event.Event)
        event.closed = false ∧ 0 < actual.toNat ∧
        actual.toNat ≤ (core_models.num.nonzero.nzVal requested).toNat ∧
        actual.toNat ≤ event.capacity.toNat - event.sold.toNat ∧
+       actual.toNat = min (core_models.num.nonzero.nzVal requested).toNat
+         (event.capacity.toNat - event.sold.toNat) ∧
        ev'.sold.toNat = event.sold.toNat + actual.toNat ∧
        actual.toNat ≤ event.capacity.toNat ∧
        actual.toNat * event.price.toNat ≤ 18446744073709551615
@@ -63,12 +65,13 @@ theorem record_sale_spec (event : ticketing_interface.state.event.Event)
       | (simp_all only [EventInv, EventLegalTransition, UInt64.le_iff_toNat_le,
             decide_eq_true_eq, Bool.not_eq_true, Bool.not_not, beq_eq_false_iff_ne, ne_eq]
          repeat' first
+           | trivial
            | rfl
            | assumption
            | exact mul_le_max (cap := event.capacity.toNat) (by omega) (by omega)
            | exact toNat_pos_of_ne (by assumption)
            | omega
-           | constructor)
+           | apply And.intro)
 "
     )
 )]

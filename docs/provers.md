@@ -66,7 +66,7 @@ operations are `payment_for`, `record_sale`, and `close_sales`.
 | Verus | Full SMT proof | All cores and domain operations, unbounded | Dispatcher byte front remains trusted |
 | Flux | Refinement checking | Reference flow properties over the field models: creation, exact quantity/payment, ticket consistency, close status, and error frames; strict overflow checks | Wire constructors, accessors, setters, and numeric bridges remain trusted; total payment helper requires quantity within capacity |
 | Aeneas | Generated model plus Lean proof | All cores and domain operations at reference coverage, unbounded | Wire types and glue are modeled through trusted specifications |
-| hax | Generated Lean plus inline Hoare proofs | All cores and domain operations, unbounded | Clamp is proved by upper bounds rather than exact `min` |
+| hax | Generated Lean plus inline Hoare proofs | All cores and domain operations, including exact clamp and ticket quantity, unbounded | Foreign-type models and helper replacements must match Rust; headers and reserved bytes are not modeled |
 | VeriFast | Detached symbolic model | Three top-level cores at reference behavioral coverage, unbounded | Shipping cores and separate leaf operations are not verified directly |
 | Prusti | None | Compatibility spike stops before compilation | Edition 2024 and Cargo resolver 3 unsupported |
 
@@ -119,6 +119,12 @@ models now support the reference flow properties, including creation and ticket 
 Strict overflow checking is enabled, and lane-owned trusted arithmetic helpers were removed.
 The current result is nine checked functions, 15 trusted items, and 123 solved constraints.
 The July timing above describes the earlier 58-constraint version; no new timing series was taken.
+
+The hax contracts were strengthened on 2026-10-13 to prove the exact sale and ticket quantity. A new
+series using the same warm-up and three-run method measured **17.57 s [17.53-17.62]** for full
+verification. It used the same CPU and RAM, Linux 7.0.0-38 x86_64, Docker 29.9.0, and the unchanged
+hax and Lean pins. Image construction was excluded. The July hax row above describes the earlier
+contracts.
 
 ## Tool and backend map
 
@@ -201,7 +207,8 @@ trusted wire-model interface and a separate proof-authoring workflow.
 
 hax also targets Lean, but its Hoare proofs live inline in Rust attributes and run through `RustM` and
 `mvcgen`. The nonlinear bound is proved, generated Lean is disposable, and the committed model
-preamble states the foreign-type correspondence. The exact clamp remains a disclosed gap.
+preamble states the foreign-type correspondence. The sale and purchase contracts prove the exact
+clamp, including the ticket quantity and corresponding payment.
 
 ### VeriFast
 
